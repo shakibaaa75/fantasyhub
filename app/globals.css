@@ -1,26 +1,74 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-lavender: #AB9DD9;
+  --color-plum: #5E3D8C;
+  --color-blush: #EF94CA;
+  --color-void: #070707;
+  --color-s1: #0C0C0C;
+  --color-s2: #111111;
+  --color-s3: #181818;
+  --color-s4: #1E1E1E;
+  --color-s5: #262626;
+  --color-brd: #1a1a1a;
+
+  --font-sans: 'Montserrat', system-ui, sans-serif;
+  --font-display: 'Mochiy Pop One', sans-serif;
+  --font-body: 'Rethink Sans', sans-serif;
+
+  --animate-up: up 0.4s ease both;
+  --animate-msgin: msgin 0.25s ease both;
+  --animate-dot1: dot 1.4s ease infinite;
+  --animate-dot2: dot 1.4s ease 0.15s infinite;
+  --animate-dot3: dot 1.4s ease 0.3s infinite;
+  --animate-spin: spin 1s linear infinite;
+  --animate-pulse: pulse 2s ease infinite;
+  --animate-toastin: toastin 0.2s ease both;
+  --animate-toastout: toastout 0.2s ease both;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@keyframes up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes msgin {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes dot {
+  0%, 60%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes toastin {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes toastout {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes shimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+ 
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }

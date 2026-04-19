@@ -1,0 +1,40 @@
+import { Tag } from './types';
+
+export const tags: Tag[] = [
+  { name: 'Gaming', icon: 'gamepad-2', category: 'fun' },
+  { name: 'Anime', icon: 'tv', category: 'fun' },
+  { name: 'Music', icon: 'music', category: 'creative' },
+  { name: 'Movies', icon: 'film', category: 'fun' },
+  { name: 'Tech', icon: 'cpu', category: 'tech' },
+  { name: 'Coding', icon: 'code', category: 'tech' },
+  { name: 'Crypto', icon: 'bitcoin', category: 'tech' },
+  { name: 'Fitness', icon: 'dumbbell', category: 'life' },
+  { name: 'Art', icon: 'palette', category: 'creative' },
+  { name: 'Photography', icon: 'camera', category: 'creative' },
+  { name: 'Reading', icon: 'book-open', category: 'life' },
+  { name: 'Cooking', icon: 'chef-hat', category: 'life' },
+  { name: 'Travel', icon: 'plane', category: 'life' },
+  { name: 'Sports', icon: 'trophy', category: 'life' },
+  { name: 'K-Pop', icon: 'mic', category: 'fun' },
+  { name: 'Memes', icon: 'image', category: 'fun' },
+  { name: 'Design', icon: 'pen-tool', category: 'creative' },
+  { name: 'AI', icon: 'brain', category: 'tech' },
+  { name: 'Startups', icon: 'rocket', category: 'tech' },
+  { name: 'Meditation', icon: 'leaf', category: 'life' },
+  { name: 'Writing', icon: 'pencil', category: 'creative' },
+  { name: 'Fashion', icon: 'shirt', category: 'life' },
+  { name: 'RPGs', icon: 'swords', category: 'fun' },
+  { name: 'FPS', icon: 'crosshair', category: 'fun' },
+  { name: 'Board Games', icon: 'dice-5', category: 'fun' },
+  { name: 'Podcasts', icon: 'headphones', category: 'fun' },
+  { name: 'Science', icon: 'atom', category: 'tech' },
+  { name: 'Space', icon: 'orbit', category: 'tech' },
+];
+
+export const categories = [
+  { key: 'all', label: 'All' },
+  { key: 'creative', label: 'Creative' },
+  { key: 'tech', label: 'Tech' },
+  { key: 'life', label: 'Lifestyle' },
+  { key: 'fun', label: 'Fun' },
+] as const;

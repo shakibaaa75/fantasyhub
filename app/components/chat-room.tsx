@@ -5,6 +5,7 @@ import { ChatMsg } from "@/lib/types";
 import ChatMessage from "./chat-message";
 import ChatInput from "./chat-input";
 import { useChatTimer } from "@/hooks/use-chat-timer";
+import { User, Flag, ArrowRight } from "lucide-react";
 
 interface ChatRoomProps {
   sharedTags: string[];
@@ -51,7 +52,9 @@ export default function ChatRoom({
   ]);
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const replyTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const replyTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const { formatted: timer, start, stop } = useChatTimer();
 
   useEffect(() => {
@@ -73,7 +76,9 @@ export default function ChatRoom({
     }, 3000);
     return () => {
       clearTimeout(t);
-      clearTimeout(replyTimeout.current);
+      if (replyTimeout.current) {
+        clearTimeout(replyTimeout.current);
+      }
       stop();
     };
   }, [start, stop]);
@@ -91,7 +96,9 @@ export default function ChatRoom({
       { id: Date.now().toString(), text, sender: "you", time: now() },
     ]);
     setTyping(false);
-    clearTimeout(replyTimeout.current);
+    if (replyTimeout.current) {
+      clearTimeout(replyTimeout.current);
+    }
 
     replyTimeout.current = setTimeout(() => {
       setTyping(true);
@@ -121,7 +128,7 @@ export default function ChatRoom({
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="w-8 h-8 rounded-lg bg-s3 border-border flex items-center justify-center">
-              <i data-lucide="user" className="w-4 h-4 text-neutral-400" />
+              <User className="w-4 h-4 text-neutral-400" />
             </div>
             <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-void pulse" />
           </div>
@@ -136,14 +143,14 @@ export default function ChatRoom({
             className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-600 hover:text-neutral-400 hover:bg-s3 transition-all"
             title="Report"
           >
-            <i data-lucide="flag" className="w-3.5 h-3.5" />
+            <Flag className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onSkip}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-neutral-600 hover:text-neutral-400 hover:bg-s3 transition-all"
             title="Next"
           >
-            <i data-lucide="arrow-right" className="w-3.5 h-3.5" />
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -162,7 +169,7 @@ export default function ChatRoom({
         {typing && (
           <div className="flex gap-2.5 max-w-[85%] mb-4 msg-in">
             <div className="w-7 h-7 rounded-md bg-s3 border-border flex items-center justify-center shrink-0 mt-0.5">
-              <i data-lucide="user" className="w-3.5 h-3.5 text-neutral-500" />
+              <User className="w-3.5 h-3.5 text-neutral-500" />
             </div>
             <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-s3 border-border/60">
               <div className="flex gap-1">

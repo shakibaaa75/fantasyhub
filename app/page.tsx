@@ -144,7 +144,7 @@ export default function Home() {
       setShowLogin(true);
       setShowRegister(false);
     } else if (v === "register") {
-      setShowRegister(true); // ═══ FIXED: was setRegister(true)
+      setShowRegister(true);
       setShowLogin(false);
     } else {
       setView(v);
@@ -160,13 +160,13 @@ export default function Home() {
   };
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // CHAT MODE — No website header, only chat header. Body scroll locked via .chat-mode
+  // CHAT MODE — fixed inset-0 forces viewport fill, flex-col keeps header fixed
   // ═══════════════════════════════════════════════════════════════════════════════
   if (isInChatMode) {
     return (
-      <div className="h-full w-full flex flex-col overflow-hidden bg-void">
+      <div className="fixed inset-0 z-50 flex flex-col bg-void overflow-hidden">
         {view === "match" && (
-          <div className="flex-1 h-full w-full overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <MatchFound
               strangerName={strangerName}
               sharedTags={sharedTags}
@@ -177,7 +177,7 @@ export default function Home() {
         )}
 
         {view === "chat" && (
-          <div className="flex-1 h-full w-full overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <ChatRoom
               strangerName={strangerName}
               sharedTags={sharedTags}
@@ -216,7 +216,7 @@ export default function Home() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // NON-CHAT MODE — Website header + content + bottom nav (body scrollable)
+  // NON-CHAT MODE
   // ═══════════════════════════════════════════════════════════════════════════════
   return (
     <>

@@ -67,20 +67,22 @@
   box-sizing: border-box;
 }
 
-html {
+/* ═══════════════════════════════════════════════════════════════════════════════ */
+/* CRITICAL: html, body, #__next MUST fill viewport for h-full to work           */
+/* ═══════════════════════════════════════════════════════════════════════════════ */
+html, body, #__next {
   height: 100%;
 }
 
 body {
-  min-height: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* iOS Safari specific */
-@supports (-webkit-touch-callout: none) {
-  body {
-    min-height: 100dvh;
+/* iOS Safari: use dvh when available */
+@supports (height: 100dvh) {
+  html, body, #__next {
+    height: 100dvh;
   }
 }
 
@@ -106,18 +108,9 @@ input, textarea {
   font-size: 16px !important;
 }
 
-/* Next.js root must fill viewport */
-#__next {
-  min-height: 100%;
-}
-
 @supports (height: 100dvh) {
   .h-dvh-fix {
     height: 100dvh;
-  }
-  
-  #__next {
-    min-height: 100dvh;
   }
 }
 
@@ -145,18 +138,10 @@ input, textarea, button {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════ */
-/* CHAT MODE — Body scroll lock (applied via JS by adding .chat-mode to <html>)    */
+/* CHAT MODE — Lock body scroll ONLY when .chat-mode is on <html>                  */
 /* ═══════════════════════════════════════════════════════════════════════════════ */
 html.chat-mode,
 html.chat-mode body {
-  height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
-}
-
-@supports (-webkit-touch-callout: none) {
-  html.chat-mode,
-  html.chat-mode body {
-    height: 100dvh;
-  }
 }

@@ -226,8 +226,37 @@ export default function ChatRoom({
   const { formatted: timer, start, stop } = useChatTimer();
   const handlersRef = useRef<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
 
   const t = themeConfig[theme];
+
+  // iOS Safari fix: Force header to stay visible when keyboard opens/closes
+  useEffect(() => {
+    const fixHeader = () => {
+      if (headerRef.current) {
+        const rect = headerRef.current.getBoundingClientRect();
+        // If header is off-screen (iOS keyboard bug), force it back
+        if (rect.top < -1) {
+          headerRef.current.style.transform = `translateY(${Math.abs(rect.top)}px)`;
+        } else {
+          headerRef.current.style.transform = "";
+        }
+      }
+    };
+
+    // Run on scroll, focus, blur, and visual viewport changes
+    window.addEventListener("scroll", fixHeader, true);
+    window.addEventListener("resize", fixHeader);
+    window.visualViewport?.addEventListener("resize", fixHeader);
+    window.visualViewport?.addEventListener("scroll", fixHeader);
+
+    return () => {
+      window.removeEventListener("scroll", fixHeader, true);
+      window.removeEventListener("resize", fixHeader);
+      window.visualViewport?.removeEventListener("resize", fixHeader);
+      window.visualViewport?.removeEventListener("scroll", fixHeader);
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -316,9 +345,15 @@ export default function ChatRoom({
     <div
       className={`h-[100dvh] ${t.bg} transition-colors duration-500 flex flex-col overflow-hidden`}
     >
-      {/* FIXED HEADER - Uses position fixed instead of sticky */}
+      {/* FIXED HEADER with iOS Safari bug fix */}
       <div
+        ref={headerRef}
         className={`fixed top-0 left-0 right-0 z-50 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
+        style={{
+          transform: "translateZ(0)", // Force GPU acceleration
+          WebkitTransform: "translateZ(0)",
+          willChange: "transform",
+        }}
       >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -428,9 +463,10 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* FIXED MATCH BADGE - Below header */}
+      {/* FIXED MATCH BADGE */}
       <div
         className={`fixed top-12 sm:top-14 left-0 right-0 z-40 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
+        style={{ transform: "translateZ(0)", WebkitTransform: "translateZ(0)" }}
       >
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
@@ -439,11 +475,11 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* SCROLLABLE MESSAGES - Padding accounts for fixed header + badge */}
+      {/* SCROLLABLE MESSAGES */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
-        style={{ paddingTop: "5rem" }} // 3rem header + ~2rem badge area
+        style={{ paddingTop: "5rem" }}
       >
         <AnimatePresence>
           {messages.map((msg) => (
@@ -479,7 +515,7 @@ export default function ChatRoom({
         </AnimatePresence>
       </div>
 
-      {/* INPUT - Fixed at bottom */}
+      {/* INPUT */}
       <ChatInput
         onSend={handleSend}
         onTyping={handleTyping}

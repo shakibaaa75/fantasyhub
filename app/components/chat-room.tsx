@@ -70,7 +70,7 @@ export const themeConfig: Record<
   midnight: {
     name: "Midnight",
     bg: "bg-[#0a0a1a]",
-    headerBg: "bg-[#0a0a1a]",
+    headerBg: "bg-[#0a0a1a]/95",
     headerBorder: "border-[#1a1a3e]",
     text: "text-[#e0e0ff]",
     subtext: "text-[#6b6b9e]",
@@ -93,7 +93,7 @@ export const themeConfig: Record<
   bubblegum: {
     name: "Bubblegum",
     bg: "bg-[#fff0f5]",
-    headerBg: "bg-[#fff0f5]",
+    headerBg: "bg-[#fff0f5]/95",
     headerBorder: "border-[#ffcce0]",
     text: "text-[#4a1a3a]",
     subtext: "text-[#b06b8a]",
@@ -116,7 +116,7 @@ export const themeConfig: Record<
   ocean: {
     name: "Ocean",
     bg: "bg-[#0a1628]",
-    headerBg: "bg-[#0a1628]",
+    headerBg: "bg-[#0a1628]/95",
     headerBorder: "border-[#0d2847]",
     text: "text-[#c8e6ff]",
     subtext: "text-[#4a90d9]",
@@ -139,7 +139,7 @@ export const themeConfig: Record<
   lavender: {
     name: "Lavender",
     bg: "bg-[#f3e8ff]",
-    headerBg: "bg-[#f3e8ff]",
+    headerBg: "bg-[#f3e8ff]/95",
     headerBorder: "border-[#d8b4fe]",
     text: "text-[#3a1a5c]",
     subtext: "text-[#7c3aed]",
@@ -162,7 +162,7 @@ export const themeConfig: Record<
   neon: {
     name: "Neon",
     bg: "bg-[#050505]",
-    headerBg: "bg-[#050505]",
+    headerBg: "bg-[#050505]/95",
     headerBorder: "border-[#1a1a1a]",
     text: "text-[#e0e0e0]",
     subtext: "text-[#666]",
@@ -185,7 +185,7 @@ export const themeConfig: Record<
   rose: {
     name: "Rose Gold",
     bg: "bg-[#1a0a0f]",
-    headerBg: "bg-[#1a0a0f]",
+    headerBg: "bg-[#1a0a0f]/95",
     headerBorder: "border-[#2a1518]",
     text: "text-[#ffd6e0]",
     subtext: "text-[#c4717a]",
@@ -313,16 +313,14 @@ export default function ChatRoom({
   }, []);
 
   return (
-    /* fixed inset-0 completely removes this from document flow —
-       nothing in layout.tsx or page.tsx can interfere */
     <div
-      className={`fixed inset-0 ${t.bg} transition-colors duration-500 flex flex-col z-[9999]`}
-      style={{ overflow: "hidden" }}
+      className={`h-[100dvh] ${t.bg} transition-colors duration-500 flex flex-col overflow-hidden`}
     >
-      {/* ── HEADER ─────────────────────────────────── */}
-      <div className={`shrink-0 ${t.headerBg} border-b ${t.headerBorder}`}>
+      {/* FIXED HEADER - Not sticky, position fixed to viewport */}
+      <div
+        className={`fixed top-0 left-0 right-0 z-50 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
+      >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
-          {/* left: back + avatar + name */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             {onBack && (
               <button
@@ -354,9 +352,7 @@ export default function ChatRoom({
             </div>
           </div>
 
-          {/* right: actions */}
           <div className="flex items-center gap-0.5 sm:gap-1">
-            {/* theme picker */}
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setShowThemeMenu(!showThemeMenu)}
@@ -404,7 +400,6 @@ export default function ChatRoom({
               </AnimatePresence>
             </div>
 
-            {/* mute */}
             <button
               onClick={() => setIsMuted(!isMuted)}
               className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
@@ -416,7 +411,6 @@ export default function ChatRoom({
               )}
             </button>
 
-            {/* report */}
             <button
               onClick={onReport}
               className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} hover:text-red-400`}
@@ -424,7 +418,6 @@ export default function ChatRoom({
               <Flag className="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
 
-            {/* skip */}
             <button
               onClick={onSkip}
               className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
@@ -435,8 +428,10 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* ── MATCH BADGE ────────────────────────────── */}
-      <div className="shrink-0 flex justify-center px-4 pt-2 pb-1">
+      {/* FIXED MATCH BADGE - Below header */}
+      <div
+        className={`fixed top-12 sm:top-14 left-0 right-0 z-40 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
+      >
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
         >
@@ -444,10 +439,11 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* ── MESSAGES (only part that scrolls) ──────── */}
+      {/* SCROLLABLE MESSAGES - Padding top accounts for fixed header + badge */}
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
+        className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
+        style={{ paddingTop: "calc(3rem + 2rem)" }} // header (3rem/12) + badge area (~2rem)
       >
         <AnimatePresence>
           {messages.map((msg) => (
@@ -483,15 +479,13 @@ export default function ChatRoom({
         </AnimatePresence>
       </div>
 
-      {/* ── INPUT (pinned to bottom) ───────────────── */}
-      <div className="shrink-0">
-        <ChatInput
-          onSend={handleSend}
-          onTyping={handleTyping}
-          timer={timer}
-          theme={theme}
-        />
-      </div>
+      {/* INPUT - Fixed at bottom */}
+      <ChatInput
+        onSend={handleSend}
+        onTyping={handleTyping}
+        timer={timer}
+        theme={theme}
+      />
     </div>
   );
 }

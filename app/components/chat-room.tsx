@@ -227,53 +227,7 @@ export default function ChatRoom({
   const handlersRef = useRef<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Keyboard handling - Instagram style
-  const [windowHeight, setWindowHeight] = useState(
-    typeof window !== "undefined" ? window.innerHeight : 800,
-  );
-  const headerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLDivElement>(null);
-  const [headerHeight, setHeaderHeight] = useState(56);
-  const [inputHeight, setInputHeight] = useState(80);
-
   const t = themeConfig[theme];
-
-  // Measure header and input heights
-  useEffect(() => {
-    if (headerRef.current) {
-      setHeaderHeight(headerRef.current.offsetHeight);
-    }
-    if (inputRef.current) {
-      setInputHeight(inputRef.current.offsetHeight);
-    }
-  }, []);
-
-  // Instagram's keyboard detection
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handleResize = () => {
-      // When keyboard opens, window.innerHeight decreases
-      const newHeight = window.innerHeight;
-      setWindowHeight(newHeight);
-
-      // Scroll to bottom when keyboard opens
-      setTimeout(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
-      }, 50);
-    };
-
-    window.addEventListener("resize", handleResize);
-    // Also listen to visualViewport for iOS
-    window.visualViewport?.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      window.visualViewport?.removeEventListener("resize", handleResize);
-    };
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -358,15 +312,11 @@ export default function ChatRoom({
     wsService.send({ type: "typing", data: { is_typing: isTyping } });
   }, []);
 
-  // Calculate messages height based on actual window size
-  const messagesHeight = windowHeight - headerHeight - inputHeight;
-
   return (
-    <div className={`${t.bg}`} style={{ height: "100%", width: "100%" }}>
-      {/* HEADER - fixed at top */}
+    <div className={`flex flex-col h-screen w-full ${t.bg} overflow-hidden`}>
+      {/* HEADER — sticky top-0 */}
       <div
-        ref={headerRef}
-        className={`fixed top-0 left-0 right-0 z-20 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
+        className={`sticky top-0 z-20 flex-shrink-0 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
       >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -476,10 +426,9 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* BADGE - fixed below header */}
+      {/* BADGE — sticky below header */}
       <div
-        className={`fixed left-0 right-0 z-10 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
-        style={{ top: `${headerHeight}px` }}
+        className={`sticky top-[48px] sm:top-[56px] z-10 flex-shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
       >
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
@@ -488,17 +437,10 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* MESSAGES - scrollable area between header and input */}
+      {/* MESSAGES — ONLY this scrolls */}
       <div
         ref={scrollRef}
-        className="overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
-        style={{
-          position: "fixed",
-          top: `${headerHeight + 40}px`, // 40px is badge height approx
-          bottom: `${inputHeight}px`,
-          left: 0,
-          right: 0,
-        }}
+        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
       >
         {messages.map((msg) => (
           <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
@@ -527,8 +469,8 @@ export default function ChatRoom({
         )}
       </div>
 
-      {/* INPUT - fixed at bottom */}
-      <div ref={inputRef} className="fixed bottom-0 left-0 right-0 z-10">
+      {/* INPUT — stays at bottom */}
+      <div className="flex-shrink-0">
         <ChatInput
           onSend={handleSend}
           onTyping={handleTyping}

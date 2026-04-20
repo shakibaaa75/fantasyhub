@@ -95,19 +95,20 @@ phantom-ui[loading] img, phantom-ui[loading] svg {
 }
 
 /* Prevent iOS zoom on input focus */
+/* Prevent iOS zoom on input focus */
 input, textarea {
-  font-size: 16px !important; /* iOS zooms if < 16px */
+  font-size: 16px !important;
 }
 
-/* Ensure html/body don't interfere with fixed positioning */
+/* Ensure body/html don't add extra scroll */
 html, body {
   height: 100%;
-  min-height: -webkit-fill-available; /* iOS Safari viewport fix */
+  overflow: hidden; /* Prevent body scroll, let the chat container handle it */
 }
 
-/* Prevent scroll on body when chat is open */
-body:has(.chat-room-active) {
-  overflow: hidden;
-  position: fixed;
-  width: 100%;
+/* iOS Safari: ensure dvh works properly */
+@supports (height: 100dvh) {
+  .h-dvh-fix {
+    height: 100dvh;
+  }
 }

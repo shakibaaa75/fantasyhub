@@ -70,7 +70,7 @@ export const themeConfig: Record<
   midnight: {
     name: "Midnight",
     bg: "bg-[#0a0a1a]",
-    headerBg: "bg-[#0a0a1a]/95",
+    headerBg: "bg-[#0a0a1a]",
     headerBorder: "border-[#1a1a3e]",
     text: "text-[#e0e0ff]",
     subtext: "text-[#6b6b9e]",
@@ -93,7 +93,7 @@ export const themeConfig: Record<
   bubblegum: {
     name: "Bubblegum",
     bg: "bg-[#fff0f5]",
-    headerBg: "bg-[#fff0f5]/95",
+    headerBg: "bg-[#fff0f5]",
     headerBorder: "border-[#ffcce0]",
     text: "text-[#4a1a3a]",
     subtext: "text-[#b06b8a]",
@@ -116,7 +116,7 @@ export const themeConfig: Record<
   ocean: {
     name: "Ocean",
     bg: "bg-[#0a1628]",
-    headerBg: "bg-[#0a1628]/95",
+    headerBg: "bg-[#0a1628]",
     headerBorder: "border-[#0d2847]",
     text: "text-[#c8e6ff]",
     subtext: "text-[#4a90d9]",
@@ -139,7 +139,7 @@ export const themeConfig: Record<
   lavender: {
     name: "Lavender",
     bg: "bg-[#f3e8ff]",
-    headerBg: "bg-[#f3e8ff]/95",
+    headerBg: "bg-[#f3e8ff]",
     headerBorder: "border-[#d8b4fe]",
     text: "text-[#3a1a5c]",
     subtext: "text-[#7c3aed]",
@@ -162,7 +162,7 @@ export const themeConfig: Record<
   neon: {
     name: "Neon",
     bg: "bg-[#050505]",
-    headerBg: "bg-[#050505]/95",
+    headerBg: "bg-[#050505]",
     headerBorder: "border-[#1a1a1a]",
     text: "text-[#e0e0e0]",
     subtext: "text-[#666]",
@@ -185,7 +185,7 @@ export const themeConfig: Record<
   rose: {
     name: "Rose Gold",
     bg: "bg-[#1a0a0f]",
-    headerBg: "bg-[#1a0a0f]/95",
+    headerBg: "bg-[#1a0a0f]",
     headerBorder: "border-[#2a1518]",
     text: "text-[#ffd6e0]",
     subtext: "text-[#c4717a]",
@@ -226,35 +226,28 @@ export default function ChatRoom({
   const { formatted: timer, start, stop } = useChatTimer();
   const handlersRef = useRef<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const t = themeConfig[theme];
 
-  // iOS Safari fix: Force header to stay visible when keyboard opens/closes
+  // Handle keyboard resize for mobile
   useEffect(() => {
-    const fixHeader = () => {
-      if (headerRef.current) {
-        const rect = headerRef.current.getBoundingClientRect();
-        // If header is off-screen (iOS keyboard bug), force it back
-        if (rect.top < -1) {
-          headerRef.current.style.transform = `translateY(${Math.abs(rect.top)}px)`;
-        } else {
-          headerRef.current.style.transform = "";
-        }
+    const handleResize = () => {
+      if (containerRef.current && window.visualViewport) {
+        const vh = window.visualViewport.height;
+        containerRef.current.style.height = `${vh}px`;
       }
     };
 
-    // Run on scroll, focus, blur, and visual viewport changes
-    window.addEventListener("scroll", fixHeader, true);
-    window.addEventListener("resize", fixHeader);
-    window.visualViewport?.addEventListener("resize", fixHeader);
-    window.visualViewport?.addEventListener("scroll", fixHeader);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleResize);
+      handleResize(); // Set initial height
+    }
 
     return () => {
-      window.removeEventListener("scroll", fixHeader, true);
-      window.removeEventListener("resize", fixHeader);
-      window.visualViewport?.removeEventListener("resize", fixHeader);
-      window.visualViewport?.removeEventListener("scroll", fixHeader);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", handleResize);
+      }
     };
   }, []);
 
@@ -343,17 +336,13 @@ export default function ChatRoom({
 
   return (
     <div
-      className={`h-[100dvh] ${t.bg} transition-colors duration-500 flex flex-col overflow-hidden`}
+      ref={containerRef}
+      className={`w-full ${t.bg} transition-colors duration-500 flex flex-col overflow-hidden`}
+      style={{ height: "100dvh" }}
     >
-      {/* FIXED HEADER with iOS Safari bug fix */}
+      {/* HEADER - shrink-0 means never shrinks */}
       <div
-        ref={headerRef}
-        className={`fixed top-0 left-0 right-0 z-50 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
-        style={{
-          transform: "translateZ(0)", // Force GPU acceleration
-          WebkitTransform: "translateZ(0)",
-          willChange: "transform",
-        }}
+        className={`shrink-0 w-full ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
       >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -463,10 +452,9 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* FIXED MATCH BADGE */}
+      {/* BADGE - shrink-0 means never shrinks */}
       <div
-        className={`fixed top-12 sm:top-14 left-0 right-0 z-40 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
-        style={{ transform: "translateZ(0)", WebkitTransform: "translateZ(0)" }}
+        className={`shrink-0 w-full flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
       >
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
@@ -475,11 +463,10 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* SCROLLABLE MESSAGES */}
+      {/* MESSAGES - flex-1 min-h-0 overflow-y-auto ONLY this scrolls */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
-        style={{ paddingTop: "5rem" }}
+        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
       >
         <AnimatePresence>
           {messages.map((msg) => (
@@ -515,13 +502,15 @@ export default function ChatRoom({
         </AnimatePresence>
       </div>
 
-      {/* INPUT */}
-      <ChatInput
-        onSend={handleSend}
-        onTyping={handleTyping}
-        timer={timer}
-        theme={theme}
-      />
+      {/* INPUT - shrink-0 means never shrinks, stays at bottom */}
+      <div className="shrink-0 w-full">
+        <ChatInput
+          onSend={handleSend}
+          onTyping={handleTyping}
+          timer={timer}
+          theme={theme}
+        />
+      </div>
     </div>
   );
 }

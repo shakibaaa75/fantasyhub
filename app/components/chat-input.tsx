@@ -20,7 +20,6 @@ export default function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Theme-based colors
   const getThemeStyles = () => {
     switch (theme) {
       case "midnight":
@@ -116,10 +115,10 @@ export default function ChatInput({
   }, []);
 
   return (
-    <div className={`border-t backdrop-blur-md ${styles.container}`}>
-      <div className="flex items-end gap-2 px-3 py-3 max-w-2xl mx-auto">
+    <div className={`flex-shrink-0 border-t ${styles.container}`}>
+      <div className="flex items-end gap-2 px-3 py-3">
         {/* Textarea */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <textarea
             ref={textareaRef}
             value={value}
@@ -137,7 +136,7 @@ export default function ChatInput({
           />
         </div>
 
-        {/* Send Button - Always visible */}
+        {/* Send Button */}
         <button
           onClick={handleSend}
           disabled={!value.trim()}
@@ -154,7 +153,7 @@ export default function ChatInput({
       </div>
 
       {/* Timer and hint */}
-      <div className="flex items-center justify-between pb-3 px-4 max-w-2xl mx-auto">
+      <div className="flex items-center justify-between pb-3 px-4">
         <span className="text-[10px] text-neutral-500 hidden sm:block">
           Press Enter to send
         </span>

@@ -149,12 +149,14 @@ export default function Home() {
     return false;
   };
 
-  // For chat mode, render with fullscreen overlay
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // CHAT MODE — Fullscreen overlay with proper flex layout
+  // ═══════════════════════════════════════════════════════════════════════════════
   if (isInChatMode) {
     return (
-      <div className="fixed inset-0 z-50 bg-void">
+      <div className="fixed inset-0 z-50 bg-void flex flex-col h-full w-full overflow-hidden">
         {view === "match" && (
-          <div className="h-full w-full">
+          <div className="flex-1 h-full w-full overflow-hidden">
             <MatchFound
               strangerName={strangerName}
               sharedTags={sharedTags}
@@ -165,7 +167,7 @@ export default function Home() {
         )}
 
         {view === "chat" && (
-          <div className="h-full w-full">
+          <div className="flex-1 h-full w-full overflow-hidden">
             <ChatRoom
               strangerName={strangerName}
               sharedTags={sharedTags}
@@ -204,7 +206,9 @@ export default function Home() {
     );
   }
 
-  // Non-chat mode with headers and nav
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // NON-CHAT MODE — Header + content + bottom nav
+  // ═══════════════════════════════════════════════════════════════════════════════
   return (
     <>
       {/* MAIN APP HEADER */}

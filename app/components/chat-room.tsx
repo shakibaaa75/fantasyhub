@@ -230,7 +230,6 @@ export default function ChatRoom({
 
   const t = themeConfig[theme];
 
-  // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -316,138 +315,130 @@ export default function ChatRoom({
 
   return (
     <div
-      className={`flex flex-col h-[100dvh] ${t.bg} transition-colors duration-500`}
+      className={`h-[100dvh] ${t.bg} transition-colors duration-500 flex flex-col`}
     >
-      {/* Header - STICKY with backdrop blur */}
+      {/* Header - Sticky */}
       <div
-        className={`sticky top-0 z-20 flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14 border-b ${t.headerBg} ${t.headerBorder} backdrop-blur-md shrink-0 transition-colors duration-500`}
-        style={{ position: "sticky", top: 0 }}
+        className={`sticky top-0 z-20 flex-none ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
       >
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          {/* Back button for mobile */}
-          {onBack && (
-            <button
-              onClick={onBack}
-              className={`sm:hidden w-9 h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300 shrink-0`}
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          )}
-
-          <div className="relative shrink-0">
-            <div
-              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ${t.avatarBg} flex items-center justify-center transition-colors duration-500`}
-            >
-              <User className="w-4 h-4 text-neutral-500" />
-            </div>
-            <div
-              className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ${t.avatarRing} transition-colors duration-500`}
-            />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div
-              className={`text-sm font-semibold ${t.text} transition-colors duration-500 truncate`}
-            >
-              {strangerName}
-            </div>
-            <div className="text-[10px] sm:text-xs text-green-500">online</div>
-          </div>
-        </div>
-
-        {/* Header actions */}
-        <div className="flex items-center gap-0.5 sm:gap-1">
-          {/* Theme Toggle */}
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setShowThemeMenu(!showThemeMenu)}
-              className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300`}
-              title="Change theme"
-            >
-              <Sparkles className="w-5 h-5 sm:w-4 sm:h-4" />
-            </button>
-
-            <AnimatePresence>
-              {showThemeMenu && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className={`absolute right-0 top-12 rounded-xl border p-2 shadow-2xl z-50 min-w-[160px] max-w-[calc(100vw-2rem)] ${t.menuBg} ${t.menuBorder} transition-colors duration-500`}
-                >
-                  {(Object.keys(themeConfig) as ChatTheme[]).map((th) => (
-                    <button
-                      key={th}
-                      onClick={() => {
-                        setTheme(th);
-                        setShowThemeMenu(false);
-                      }}
-                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium capitalize transition-all duration-200 ${
-                        theme === th
-                          ? `${t.menuActiveBg} ${t.menuActiveText}`
-                          : `${t.menuText} ${t.menuItemHover}`
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full shrink-0"
-                          style={{
-                            backgroundColor: themeConfig[th].accentColor,
-                          }}
-                        />
-                        <span className="truncate">{themeConfig[th].name}</span>
-                        {theme === th && (
-                          <span className="ml-auto shrink-0">✓</span>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          <button
-            onClick={() => setIsMuted(!isMuted)}
-            className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300`}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? (
-              <VolumeX className="w-5 h-5 sm:w-4 sm:h-4" />
-            ) : (
-              <Volume2 className="w-5 h-5 sm:w-4 sm:h-4" />
+        <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className={`sm:hidden w-9 h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300 shrink-0`}
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
             )}
-          </button>
 
-          <button
-            onClick={onReport}
-            className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} hover:text-red-400 transition-all duration-300`}
-            title="Report"
-          >
-            <Flag className="w-5 h-5 sm:w-4 sm:h-4" />
-          </button>
+            <div className="relative shrink-0">
+              <div
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ${t.avatarBg} flex items-center justify-center`}
+              >
+                <User className="w-4 h-4 text-neutral-500" />
+              </div>
+              <div
+                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ${t.avatarRing}`}
+              />
+            </div>
 
-          <button
-            onClick={onSkip}
-            className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300`}
-            title="Next"
-          >
-            <ArrowRight className="w-5 h-5 sm:w-4 sm:h-4" />
-          </button>
+            <div className="min-w-0 flex-1">
+              <div className={`text-sm font-semibold ${t.text} truncate`}>
+                {strangerName}
+              </div>
+              <div className="text-[10px] sm:text-xs text-green-500">
+                online
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-0.5 sm:gap-1">
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowThemeMenu(!showThemeMenu)}
+                className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
+              >
+                <Sparkles className="w-5 h-5 sm:w-4 sm:h-4" />
+              </button>
+              <AnimatePresence>
+                {showThemeMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                    className={`absolute right-0 top-12 rounded-xl border p-2 shadow-2xl z-50 min-w-[160px] ${t.menuBg} ${t.menuBorder}`}
+                  >
+                    {(Object.keys(themeConfig) as ChatTheme[]).map((th) => (
+                      <button
+                        key={th}
+                        onClick={() => {
+                          setTheme(th);
+                          setShowThemeMenu(false);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium capitalize ${
+                          theme === th
+                            ? `${t.menuActiveBg} ${t.menuActiveText}`
+                            : `${t.menuText} ${t.menuItemHover}`
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full shrink-0"
+                            style={{
+                              backgroundColor: themeConfig[th].accentColor,
+                            }}
+                          />
+                          <span className="truncate">
+                            {themeConfig[th].name}
+                          </span>
+                          {theme === th && <span className="ml-auto">✓</span>}
+                        </div>
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
+            >
+              {isMuted ? (
+                <VolumeX className="w-5 h-5 sm:w-4 sm:h-4" />
+              ) : (
+                <Volume2 className="w-5 h-5 sm:w-4 sm:h-4" />
+              )}
+            </button>
+
+            <button
+              onClick={onReport}
+              className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} hover:text-red-400`}
+            >
+              <Flag className="w-5 h-5 sm:w-4 sm:h-4" />
+            </button>
+
+            <button
+              onClick={onSkip}
+              className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
+            >
+              <ArrowRight className="w-5 h-5 sm:w-4 sm:h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Match badge - sticky below header */}
-      <div className="sticky top-12 sm:top-14 z-10 flex justify-center px-4 pt-2 pb-1 bg-inherit">
+      {/* Match badge - Sticky */}
+      <div className="sticky top-12 sm:top-14 z-10 flex-none flex justify-center px-4 pt-2 pb-1 bg-inherit">
         <div
-          className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} transition-colors duration-500 truncate max-w-full`}
+          className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
         >
           matched on {sharedTags.join(" • ")}
         </div>
       </div>
 
-      {/* Messages - scrollable area */}
+      {/* Messages - Scrollable */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
@@ -456,7 +447,6 @@ export default function ChatRoom({
           {messages.map((msg) => (
             <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
           ))}
-
           {isStrangerTyping && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -465,7 +455,7 @@ export default function ChatRoom({
               className="flex justify-start w-full mb-1"
             >
               <div
-                className={`${t.typingBg} rounded-[1.15rem] rounded-tl-md px-3 sm:px-4 py-2.5 sm:py-3 transition-colors duration-500`}
+                className={`${t.typingBg} rounded-[1.15rem] rounded-tl-md px-3 sm:px-4 py-2.5 sm:py-3`}
               >
                 <div className="flex gap-1">
                   <div
@@ -487,7 +477,7 @@ export default function ChatRoom({
         </AnimatePresence>
       </div>
 
-      {/* Input - fixed at bottom */}
+      {/* Input - Fixed at bottom */}
       <ChatInput
         onSend={handleSend}
         onTyping={handleTyping}

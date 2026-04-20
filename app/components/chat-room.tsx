@@ -70,7 +70,7 @@ export const themeConfig: Record<
   midnight: {
     name: "Midnight",
     bg: "bg-[#0a0a1a]",
-    headerBg: "bg-[#0a0a1a]",
+    headerBg: "bg-[#0a0a1a]/95",
     headerBorder: "border-[#1a1a3e]",
     text: "text-[#e0e0ff]",
     subtext: "text-[#6b6b9e]",
@@ -93,7 +93,7 @@ export const themeConfig: Record<
   bubblegum: {
     name: "Bubblegum",
     bg: "bg-[#fff0f5]",
-    headerBg: "bg-[#fff0f5]",
+    headerBg: "bg-[#fff0f5]/95",
     headerBorder: "border-[#ffcce0]",
     text: "text-[#4a1a3a]",
     subtext: "text-[#b06b8a]",
@@ -116,7 +116,7 @@ export const themeConfig: Record<
   ocean: {
     name: "Ocean",
     bg: "bg-[#0a1628]",
-    headerBg: "bg-[#0a1628]",
+    headerBg: "bg-[#0a1628]/95",
     headerBorder: "border-[#0d2847]",
     text: "text-[#c8e6ff]",
     subtext: "text-[#4a90d9]",
@@ -139,7 +139,7 @@ export const themeConfig: Record<
   lavender: {
     name: "Lavender",
     bg: "bg-[#f3e8ff]",
-    headerBg: "bg-[#f3e8ff]",
+    headerBg: "bg-[#f3e8ff]/95",
     headerBorder: "border-[#d8b4fe]",
     text: "text-[#3a1a5c]",
     subtext: "text-[#7c3aed]",
@@ -162,7 +162,7 @@ export const themeConfig: Record<
   neon: {
     name: "Neon",
     bg: "bg-[#050505]",
-    headerBg: "bg-[#050505]",
+    headerBg: "bg-[#050505]/95",
     headerBorder: "border-[#1a1a1a]",
     text: "text-[#e0e0e0]",
     subtext: "text-[#666]",
@@ -185,7 +185,7 @@ export const themeConfig: Record<
   rose: {
     name: "Rose Gold",
     bg: "bg-[#1a0a0f]",
-    headerBg: "bg-[#1a0a0f]",
+    headerBg: "bg-[#1a0a0f]/95",
     headerBorder: "border-[#2a1518]",
     text: "text-[#ffd6e0]",
     subtext: "text-[#c4717a]",
@@ -313,8 +313,8 @@ export default function ChatRoom({
   }, []);
 
   return (
-    <div className={`flex flex-col h-screen w-full ${t.bg}`}>
-      {/* HEADER - STICKY at top */}
+    <div className={`flex flex-col h-screen w-full ${t.bg} overflow-hidden`}>
+      {/* HEADER - STICKY */}
       <div
         className={`sticky top-0 z-20 flex-shrink-0 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
       >
@@ -426,7 +426,7 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* BADGE - Also sticky or just below header */}
+      {/* BADGE */}
       <div
         className={`sticky top-[48px] sm:top-[56px] z-10 flex-shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
       >
@@ -437,7 +437,7 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* MESSAGES - SCROLLABLE AREA */}
+      {/* MESSAGES - SCROLLABLE */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
@@ -470,14 +470,12 @@ export default function ChatRoom({
       </div>
 
       {/* INPUT */}
-      <div className="flex-shrink-0">
-        <ChatInput
-          onSend={handleSend}
-          onTyping={handleTyping}
-          timer={timer}
-          theme={theme}
-        />
-      </div>
+      <ChatInput
+        onSend={handleSend}
+        onTyping={handleTyping}
+        timer={timer}
+        theme={theme}
+      />
     </div>
   );
 }

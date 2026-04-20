@@ -116,3 +116,18 @@ input, textarea {
     transform: translateZ(0);
   }
 }
+
+/* Add to globals.css */
+/* @media (max-width: 640px) {
+  .fixed {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+}
+
+/* Ensure keyboard doesn't hide the send button */
+/* input, textarea, button {
+  touch-action: manipulation;
+} */ 

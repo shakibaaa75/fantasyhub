@@ -70,7 +70,7 @@ export const themeConfig: Record<
   midnight: {
     name: "Midnight",
     bg: "bg-[#0a0a1a]",
-    headerBg: "bg-[#0a0a1a]/90",
+    headerBg: "bg-[#0a0a1a]/95",
     headerBorder: "border-[#1a1a3e]",
     text: "text-[#e0e0ff]",
     subtext: "text-[#6b6b9e]",
@@ -93,7 +93,7 @@ export const themeConfig: Record<
   bubblegum: {
     name: "Bubblegum",
     bg: "bg-[#fff0f5]",
-    headerBg: "bg-[#fff0f5]/90",
+    headerBg: "bg-[#fff0f5]/95",
     headerBorder: "border-[#ffcce0]",
     text: "text-[#4a1a3a]",
     subtext: "text-[#b06b8a]",
@@ -116,7 +116,7 @@ export const themeConfig: Record<
   ocean: {
     name: "Ocean",
     bg: "bg-[#0a1628]",
-    headerBg: "bg-[#0a1628]/90",
+    headerBg: "bg-[#0a1628]/95",
     headerBorder: "border-[#0d2847]",
     text: "text-[#c8e6ff]",
     subtext: "text-[#4a90d9]",
@@ -139,7 +139,7 @@ export const themeConfig: Record<
   lavender: {
     name: "Lavender",
     bg: "bg-[#f3e8ff]",
-    headerBg: "bg-[#f3e8ff]/90",
+    headerBg: "bg-[#f3e8ff]/95",
     headerBorder: "border-[#d8b4fe]",
     text: "text-[#3a1a5c]",
     subtext: "text-[#7c3aed]",
@@ -162,7 +162,7 @@ export const themeConfig: Record<
   neon: {
     name: "Neon",
     bg: "bg-[#050505]",
-    headerBg: "bg-[#050505]/90",
+    headerBg: "bg-[#050505]/95",
     headerBorder: "border-[#1a1a1a]",
     text: "text-[#e0e0e0]",
     subtext: "text-[#666]",
@@ -185,7 +185,7 @@ export const themeConfig: Record<
   rose: {
     name: "Rose Gold",
     bg: "bg-[#1a0a0f]",
-    headerBg: "bg-[#1a0a0f]/90",
+    headerBg: "bg-[#1a0a0f]/95",
     headerBorder: "border-[#2a1518]",
     text: "text-[#ffd6e0]",
     subtext: "text-[#c4717a]",
@@ -316,11 +316,11 @@ export default function ChatRoom({
 
   return (
     <div
-      className={`relative flex flex-col h-[100dvh] ${t.bg} transition-colors duration-500`}
+      className={`relative flex flex-col h-[100dvh] ${t.bg} transition-colors duration-500 overflow-hidden`}
     >
-      {/* Header - Mobile optimized */}
+      {/* Header - STICKY with proper z-index */}
       <div
-        className={`flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14 border-b ${t.headerBg} ${t.headerBorder} backdrop-blur-md shrink-0 z-10 transition-colors duration-500`}
+        className={`sticky top-0 z-20 flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14 border-b ${t.headerBg} ${t.headerBorder} backdrop-blur-md shrink-0 transition-colors duration-500`}
       >
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {/* Back button for mobile */}
@@ -354,7 +354,7 @@ export default function ChatRoom({
           </div>
         </div>
 
-        {/* Header actions - larger tap targets on mobile */}
+        {/* Header actions */}
         <div className="flex items-center gap-0.5 sm:gap-1">
           {/* Theme Toggle */}
           <div className="relative" ref={menuRef}>
@@ -437,8 +437,8 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* Match badge - smaller on mobile */}
-      <div className="flex justify-center px-4 pt-2 sm:pt-3 pb-1">
+      {/* Match badge - below header */}
+      <div className="sticky top-12 sm:top-14 z-10 flex justify-center px-4 pt-2 pb-1 bg-inherit">
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} transition-colors duration-500 truncate max-w-full`}
         >
@@ -446,7 +446,7 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* Messages - full width on mobile with proper padding */}
+      {/* Messages - scrollable area */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
@@ -486,7 +486,7 @@ export default function ChatRoom({
         </AnimatePresence>
       </div>
 
-      {/* Input - optimized for mobile */}
+      {/* Input - fixed at bottom */}
       <ChatInput
         onSend={handleSend}
         onTyping={handleTyping}

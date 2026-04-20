@@ -34,27 +34,15 @@ export default function Home() {
 
   const isInChatMode = view === "chat" || view === "match";
 
-  // Lock body scroll when in chat mode (Instagram style)
+  // SIMPLE body scroll lock - NO position fixed on body
   useEffect(() => {
     if (isInChatMode) {
       document.documentElement.classList.add("chat-mode");
-      document.body.style.position = "fixed";
-      document.body.style.width = "100%";
-      document.body.style.height = "100%";
-      document.body.style.overflow = "hidden";
     } else {
       document.documentElement.classList.remove("chat-mode");
-      document.body.style.position = "";
-      document.body.style.width = "";
-      document.body.style.height = "";
-      document.body.style.overflow = "";
     }
     return () => {
       document.documentElement.classList.remove("chat-mode");
-      document.body.style.position = "";
-      document.body.style.width = "";
-      document.body.style.height = "";
-      document.body.style.overflow = "";
     };
   }, [isInChatMode]);
 
@@ -172,37 +160,33 @@ export default function Home() {
   };
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // CHAT MODE — Full viewport overlay (Instagram style)
+  // CHAT MODE — Simple fixed overlay
   // ═══════════════════════════════════════════════════════════════════════════════
   if (isInChatMode) {
     return (
-      <div className="fixed inset-0 z-50 bg-void overflow-hidden">
+      <div className="fixed inset-0 z-50 bg-void">
         {view === "match" && (
-          <div className="h-full w-full overflow-hidden">
-            <MatchFound
-              strangerName={strangerName}
-              sharedTags={sharedTags}
-              onChat={() => setView("chat")}
-              onSkip={handleSkipFromMatch}
-            />
-          </div>
+          <MatchFound
+            strangerName={strangerName}
+            sharedTags={sharedTags}
+            onChat={() => setView("chat")}
+            onSkip={handleSkipFromMatch}
+          />
         )}
 
         {view === "chat" && (
-          <div className="h-full w-full overflow-hidden">
-            <ChatRoom
-              strangerName={strangerName}
-              sharedTags={sharedTags}
-              matchId={matchId}
-              onReport={() => setShowReport(true)}
-              onSkip={() => setShowSkip(true)}
-              onBack={() => {
-                wsService.disconnect();
-                setView("welcome");
-                setIsSearching(false);
-              }}
-            />
-          </div>
+          <ChatRoom
+            strangerName={strangerName}
+            sharedTags={sharedTags}
+            matchId={matchId}
+            onReport={() => setShowReport(true)}
+            onSkip={() => setShowSkip(true)}
+            onBack={() => {
+              wsService.disconnect();
+              setView("welcome");
+              setIsSearching(false);
+            }}
+          />
         )}
 
         {showReport && (

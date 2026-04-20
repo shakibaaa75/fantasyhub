@@ -117,3 +117,8 @@ input, textarea {
 input, textarea, button {
   touch-action: manipulation;
 }
+
+/* Chat mode body scroll lock - keeps page from scrolling behind chat */
+html.chat-mode {
+  overflow: hidden;
+}

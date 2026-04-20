@@ -222,8 +222,7 @@ export default function ChatRoom({
   const [isStrangerTyping, setIsStrangerTyping] = useState(false);
   const [theme, setTheme] = useState<ChatTheme>("midnight");
   const [showThemeMenu, setShowThemeMenu] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null); // ← ADD THIS
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { formatted: timer, start, stop } = useChatTimer();
   const handlersRef = useRef<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -284,7 +283,7 @@ export default function ChatRoom({
     };
   }, [start, stop]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto scroll to bottom
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -314,9 +313,8 @@ export default function ChatRoom({
     wsService.send({ type: "typing", data: { is_typing: isTyping } });
   }, []);
 
-  // EXACT SAME STRUCTURE AS YOUR WORKING MessagesPage.tsx
   return (
-    <div className="h-screen bg-black flex flex-col">
+    <div className="h-screen flex flex-col bg-black">
       {/* Header - sticky top-0 */}
       <div className="sticky top-0 z-10 bg-[#1c1c1e]/95 backdrop-blur-md border-b border-gray-800 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3 flex-1">
@@ -412,14 +410,14 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* Badge - sticky below header */}
-      <div className="sticky top-[57px] z-10 flex justify-center px-4 pt-2 pb-1 bg-black">
+      {/* Badge */}
+      <div className="flex justify-center px-4 pt-2 pb-1 bg-black">
         <div className="text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border border-gray-700 bg-[#1c1c1e] text-gray-400 truncate max-w-full">
           matched on {sharedTags.join(" • ")}
         </div>
       </div>
 
-      {/* Messages - flex-1 overflow-y-auto */}
+      {/* Messages - scrollable area */}
       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
         {messages.map((msg) => (
           <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
@@ -445,8 +443,8 @@ export default function ChatRoom({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input - flex-shrink-0 */}
-      <div className="flex-shrink-0 bg-[#1c1c1e] border-t border-gray-800 px-3 py-2 pb-safe">
+      {/* Input */}
+      <div className="flex-shrink-0 bg-[#1c1c1e] border-t border-gray-800 px-3 py-2">
         <ChatInput
           onSend={handleSend}
           onTyping={handleTyping}

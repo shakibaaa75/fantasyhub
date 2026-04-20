@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatMsg } from "@/lib/types";
 import ChatMessage from "./chat-message";
@@ -12,8 +12,8 @@ import {
   ArrowRight,
   Volume2,
   VolumeX,
-  Palette,
   Sparkles,
+  ChevronLeft,
 } from "lucide-react";
 import { wsService } from "@/lib/websocket-service";
 
@@ -31,6 +31,7 @@ interface ChatRoomProps {
   matchId: string;
   onReport: () => void;
   onSkip: () => void;
+  onBack?: () => void;
 }
 
 function getTime() {
@@ -206,12 +207,16 @@ export const themeConfig: Record<
   },
 };
 
+// Memoized message component to prevent unnecessary re-renders
+const MemoizedChatMessage = memo(ChatMessage);
+
 export default function ChatRoom({
   strangerName,
   sharedTags,
   matchId,
   onReport,
   onSkip,
+  onBack,
 }: ChatRoomProps) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [isMuted, setIsMuted] = useState(false);
@@ -221,8 +226,20 @@ export default function ChatRoom({
   const scrollRef = useRef<HTMLDivElement>(null);
   const { formatted: timer, start, stop } = useChatTimer();
   const handlersRef = useRef<any>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const t = themeConfig[theme];
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowThemeMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     start();
@@ -301,14 +318,24 @@ export default function ChatRoom({
     <div
       className={`relative flex flex-col h-[100dvh] ${t.bg} transition-colors duration-500`}
     >
-      {/* Header */}
+      {/* Header - Mobile optimized */}
       <div
-        className={`flex items-center justify-between px-4 h-14 border-b ${t.headerBg} ${t.headerBorder} backdrop-blur-md shrink-0 z-10 transition-colors duration-500`}
+        className={`flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14 border-b ${t.headerBg} ${t.headerBorder} backdrop-blur-md shrink-0 z-10 transition-colors duration-500`}
       >
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          {/* Back button for mobile */}
+          {onBack && (
+            <button
+              onClick={onBack}
+              className={`sm:hidden w-9 h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300 shrink-0`}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
+
+          <div className="relative shrink-0">
             <div
-              className={`w-9 h-9 rounded-full ${t.avatarBg} flex items-center justify-center transition-colors duration-500`}
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ${t.avatarBg} flex items-center justify-center transition-colors duration-500`}
             >
               <User className="w-4 h-4 text-neutral-500" />
             </div>
@@ -316,25 +343,27 @@ export default function ChatRoom({
               className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ${t.avatarRing} transition-colors duration-500`}
             />
           </div>
-          <div>
+
+          <div className="min-w-0 flex-1">
             <div
-              className={`text-sm font-semibold ${t.text} transition-colors duration-500`}
+              className={`text-sm font-semibold ${t.text} transition-colors duration-500 truncate`}
             >
               {strangerName}
             </div>
-            <div className="text-[10px] text-green-500">online</div>
+            <div className="text-[10px] sm:text-xs text-green-500">online</div>
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        {/* Header actions - larger tap targets on mobile */}
+        <div className="flex items-center gap-0.5 sm:gap-1">
           {/* Theme Toggle */}
-          <div className="relative">
+          <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowThemeMenu(!showThemeMenu)}
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300`}
+              className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300`}
               title="Change theme"
             >
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
 
             <AnimatePresence>
@@ -344,7 +373,7 @@ export default function ChatRoom({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
-                  className={`absolute right-0 top-10 rounded-xl border p-2 shadow-2xl z-50 min-w-[160px] ${t.menuBg} ${t.menuBorder} transition-colors duration-500`}
+                  className={`absolute right-0 top-12 rounded-xl border p-2 shadow-2xl z-50 min-w-[160px] max-w-[calc(100vw-2rem)] ${t.menuBg} ${t.menuBorder} transition-colors duration-500`}
                 >
                   {(Object.keys(themeConfig) as ChatTheme[]).map((th) => (
                     <button
@@ -353,7 +382,7 @@ export default function ChatRoom({
                         setTheme(th);
                         setShowThemeMenu(false);
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium capitalize transition-all duration-200 ${
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium capitalize transition-all duration-200 ${
                         theme === th
                           ? `${t.menuActiveBg} ${t.menuActiveText}`
                           : `${t.menuText} ${t.menuItemHover}`
@@ -361,13 +390,15 @@ export default function ChatRoom({
                     >
                       <div className="flex items-center gap-2">
                         <div
-                          className="w-3 h-3 rounded-full"
+                          className="w-3 h-3 rounded-full shrink-0"
                           style={{
                             backgroundColor: themeConfig[th].accentColor,
                           }}
                         />
-                        {themeConfig[th].name}
-                        {theme === th && <span className="ml-auto">✓</span>}
+                        <span className="truncate">{themeConfig[th].name}</span>
+                        {theme === th && (
+                          <span className="ml-auto shrink-0">✓</span>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -378,49 +409,51 @@ export default function ChatRoom({
 
           <button
             onClick={() => setIsMuted(!isMuted)}
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300`}
+            className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300`}
             title={isMuted ? "Unmute" : "Mute"}
           >
             {isMuted ? (
-              <VolumeX className="w-4 h-4" />
+              <VolumeX className="w-5 h-5 sm:w-4 sm:h-4" />
             ) : (
-              <Volume2 className="w-4 h-4" />
+              <Volume2 className="w-5 h-5 sm:w-4 sm:h-4" />
             )}
           </button>
+
           <button
             onClick={onReport}
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} hover:text-red-400 transition-all duration-300`}
+            className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} hover:text-red-400 transition-all duration-300`}
             title="Report"
           >
-            <Flag className="w-4 h-4" />
+            <Flag className="w-5 h-5 sm:w-4 sm:h-4" />
           </button>
+
           <button
             onClick={onSkip}
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300`}
+            className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300`}
             title="Next"
           >
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-5 h-5 sm:w-4 sm:h-4" />
           </button>
         </div>
       </div>
 
-      {/* Match badge */}
-      <div className="flex justify-center px-5 pt-3 pb-1">
+      {/* Match badge - smaller on mobile */}
+      <div className="flex justify-center px-4 pt-2 sm:pt-3 pb-1">
         <div
-          className={`text-[10px] px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} transition-colors duration-500`}
+          className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} transition-colors duration-500 truncate max-w-full`}
         >
           matched on {sharedTags.join(" • ")}
         </div>
       </div>
 
-      {/* Messages */}
+      {/* Messages - full width on mobile with proper padding */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-2 space-y-0"
+        className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
       >
         <AnimatePresence>
           {messages.map((msg) => (
-            <ChatMessage key={msg.id} msg={msg} theme={theme} />
+            <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
           ))}
 
           {isStrangerTyping && (
@@ -431,7 +464,7 @@ export default function ChatRoom({
               className="flex justify-start w-full mb-1"
             >
               <div
-                className={`${t.typingBg} rounded-[1.15rem] rounded-tl-md px-4 py-3 transition-colors duration-500`}
+                className={`${t.typingBg} rounded-[1.15rem] rounded-tl-md px-3 sm:px-4 py-2.5 sm:py-3 transition-colors duration-500`}
               >
                 <div className="flex gap-1">
                   <div
@@ -453,7 +486,7 @@ export default function ChatRoom({
         </AnimatePresence>
       </div>
 
-      {/* Input */}
+      {/* Input - optimized for mobile */}
       <ChatInput
         onSend={handleSend}
         onTyping={handleTyping}

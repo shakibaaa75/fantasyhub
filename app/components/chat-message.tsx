@@ -1,6 +1,7 @@
 import { ChatMsg } from "@/lib/types";
 import { motion } from "framer-motion";
 import { ChatTheme, themeConfig } from "./chat-room";
+import { memo } from "react";
 
 interface ChatMessageProps {
   msg: ChatMsg;
@@ -35,10 +36,7 @@ const bubbleStyles: Record<ChatTheme, { you: string; stranger: string }> = {
   },
 };
 
-export default function ChatMessage({
-  msg,
-  theme = "midnight",
-}: ChatMessageProps) {
+function ChatMessage({ msg, theme = "midnight" }: ChatMessageProps) {
   const isYou = msg.sender === "you";
 
   return (
@@ -48,9 +46,9 @@ export default function ChatMessage({
       transition={{ duration: 0.2, ease: "easeOut" }}
       className={`flex w-full mb-1 ${isYou ? "justify-end" : "justify-start"}`}
     >
-      <div className="max-w-[75%]">
+      <div className="max-w-[85%] sm:max-w-[75%]">
         <div
-          className={`px-4 py-2.5 text-[15px] leading-snug ${isYou ? bubbleStyles[theme].you : bubbleStyles[theme].stranger} transition-colors duration-500`}
+          className={`px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-[15px] leading-snug ${isYou ? bubbleStyles[theme].you : bubbleStyles[theme].stranger} transition-colors duration-500`}
         >
           {msg.text}
         </div>
@@ -63,3 +61,5 @@ export default function ChatMessage({
     </motion.div>
   );
 }
+
+export default memo(ChatMessage);

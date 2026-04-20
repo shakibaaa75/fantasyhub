@@ -103,7 +103,7 @@ export default function ChatInput({
 
   return (
     <div
-      className={`shrink-0 px-4 py-3 border-t backdrop-blur-sm transition-colors duration-500 ${style.container}`}
+      className={`shrink-0 px-3 sm:px-4 py-2 sm:py-3 border-t backdrop-blur-sm transition-colors duration-500 ${style.container}`}
     >
       <div className="flex items-end gap-2 max-w-2xl mx-auto">
         <div className="flex-1">
@@ -114,17 +114,20 @@ export default function ChatInput({
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             rows={1}
-            className={`w-full px-4 py-2.5 rounded-[1.15rem] border text-[15px] resize-none focus:outline-none transition-colors duration-500 ${style.input}`}
-            style={{ maxHeight: 100 }}
+            className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-[1.15rem] border text-sm sm:text-[15px] resize-none focus:outline-none transition-colors duration-500 ${style.input}`}
+            style={{
+              maxHeight: 100,
+              fontSize: "16px", // Prevents iOS zoom on focus
+            }}
           />
         </div>
         <button
           onClick={handleSend}
           disabled={!value.trim()}
-          className={`w-8 h-8 rounded-full text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shrink-0 mb-0.5 ${style.button}`}
+          className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full text-white flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shrink-0 mb-0.5 ${style.button}`}
         >
           <svg
-            className="w-4 h-4 ml-0.5"
+            className="w-5 h-5 sm:w-4 sm:h-4 ml-0.5"
             fill="currentColor"
             viewBox="0 0 24 24"
           >
@@ -133,8 +136,10 @@ export default function ChatInput({
         </button>
       </div>
       <div className="flex items-center justify-between mt-1 max-w-2xl mx-auto px-1">
-        <span className="text-[10px] text-neutral-500">enter to send</span>
-        <span className="text-[10px] text-neutral-500 tabular-nums">
+        <span className="text-[10px] text-neutral-500 hidden sm:block">
+          enter to send
+        </span>
+        <span className="text-[10px] text-neutral-500 tabular-nums sm:ml-auto">
           {timer}
         </span>
       </div>

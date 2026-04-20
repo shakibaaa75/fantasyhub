@@ -230,23 +230,28 @@ export default function ChatRoom({
 
   const t = themeConfig[theme];
 
-  // Handle keyboard resize for mobile
+  // Handle keyboard resize for mobile - adjusts height when keyboard opens
   useEffect(() => {
     const handleResize = () => {
       if (containerRef.current && window.visualViewport) {
-        const vh = window.visualViewport.height;
-        containerRef.current.style.height = `${vh}px`;
+        const vv = window.visualViewport;
+        // Set height to visual viewport height (accounts for keyboard)
+        containerRef.current.style.height = `${vv.height}px`;
+        // Also handle offset if page is scrolled
+        containerRef.current.style.top = `${vv.offsetTop}px`;
       }
     };
 
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", handleResize);
+      window.visualViewport.addEventListener("scroll", handleResize);
       handleResize(); // Set initial height
     }
 
     return () => {
       if (window.visualViewport) {
         window.visualViewport.removeEventListener("resize", handleResize);
+        window.visualViewport.removeEventListener("scroll", handleResize);
       }
     };
   }, []);
@@ -337,10 +342,16 @@ export default function ChatRoom({
   return (
     <div
       ref={containerRef}
-      className={`w-full ${t.bg} transition-colors duration-500 flex flex-col overflow-hidden`}
-      style={{ height: "100dvh" }}
+      className={`fixed inset-0 z-50 ${t.bg} transition-colors duration-500 flex flex-col`}
+      style={{
+        height: "100dvh",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+      }}
     >
-      {/* HEADER - shrink-0 means never shrinks */}
+      {/* HEADER - shrink-0 means never shrinks, stays at top */}
       <div
         className={`shrink-0 w-full ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
       >
@@ -463,7 +474,7 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* MESSAGES - flex-1 min-h-0 overflow-y-auto ONLY this scrolls */}
+      {/* MESSAGES - flex-1 min-h-0 overflow-y-auto: ONLY this scrolls */}
       <div
         ref={scrollRef}
         className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"

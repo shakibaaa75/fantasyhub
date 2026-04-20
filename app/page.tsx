@@ -32,8 +32,8 @@ export default function Home() {
   } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Check if we're in a chat/message view (hide bottom nav)
-  const hideBottomNav = view === "chat" || view === "match";
+  // Check if we're in a chat/message view (hide main header and bottom nav)
+  const isInChatMode = view === "chat" || view === "match";
 
   const notify = useCallback(
     (msg: string, type: "info" | "warn" | "success" = "info") => {
@@ -152,28 +152,26 @@ export default function Home() {
   return (
     <>
       {/* ========================================== */}
-      {/* STICKY TOP HEADER - Hidden in chat mode? Actually keep it but adjust */}
+      {/* MAIN APP HEADER - HIDDEN in chat/match mode */}
       {/* ========================================== */}
-      <header
-        className={`fixed top-0 left-0 right-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10 transition-transform duration-300 ${hideBottomNav ? "translate-y-0" : ""}`}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Logo */}
-          <div
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={() => {
-              wsService.disconnect();
-              setView("welcome");
-              setIsSearching(false);
-            }}
-          >
-            <span className="text-2xl font-bold text-white tracking-tight">
-              Fantasy<span className="text-purple-500">Hub</span>
-            </span>
-          </div>
+      {!isInChatMode && (
+        <header className="fixed top-0 left-0 right-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            {/* Logo */}
+            <div
+              className="flex items-center gap-2 cursor-pointer"
+              onClick={() => {
+                wsService.disconnect();
+                setView("welcome");
+                setIsSearching(false);
+              }}
+            >
+              <span className="text-2xl font-bold text-white tracking-tight">
+                Fantasy<span className="text-purple-500">Hub</span>
+              </span>
+            </div>
 
-          {/* Navigation Actions - Hide in chat/match mode for cleaner UI */}
-          {!hideBottomNav && (
+            {/* Navigation Actions */}
             <div className="flex items-center gap-3">
               {view === "welcome" || view === "tags" ? (
                 <>
@@ -199,30 +197,15 @@ export default function Home() {
                 </div>
               )}
             </div>
-          )}
-
-          {/* Show a close/back button in chat mode */}
-          {hideBottomNav && (
-            <button
-              onClick={() => {
-                wsService.disconnect();
-                setView("welcome");
-                setIsSearching(false);
-              }}
-              className="text-sm font-medium text-gray-300 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/10"
-            >
-              Exit Chat
-            </button>
-          )}
-        </div>
-      </header>
+          </div>
+        </header>
+      )}
 
       {/* ========================================== */}
       {/* MAIN CONTENT                               */}
       {/* ========================================== */}
-      {/* Adjust padding: no bottom padding when chat is fullscreen */}
       <main
-        className={`min-h-[100dvh] ${hideBottomNav ? "pt-16 pb-0" : "pt-16 pb-24"} bg-[#0a0a0a] text-white`}
+        className={`min-h-[100dvh] ${!isInChatMode ? "pt-16 pb-24" : ""} bg-[#0a0a0a] text-white`}
       >
         {view === "welcome" && (
           <WelcomeHero
@@ -276,9 +259,9 @@ export default function Home() {
       </main>
 
       {/* ========================================== */}
-      {/* BOTTOM NAVBAR - Hidden in chat/match mode  */}
+      {/* BOTTOM NAVBAR - HIDDEN in chat/match mode  */}
       {/* ========================================== */}
-      {!hideBottomNav && (
+      {!isInChatMode && (
         <nav className="fixed bottom-0 left-0 right-0 w-full z-50 bg-[#0e0a14]/90 backdrop-blur-xl border-t border-white/[0.08] pb-[env(safe-area-inset-bottom)]">
           <div className="flex items-center justify-between max-w-lg mx-auto w-full px-4 py-2">
             {/* Home Button */}

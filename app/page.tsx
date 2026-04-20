@@ -34,7 +34,7 @@ export default function Home() {
 
   const isInChatMode = view === "chat" || view === "match";
 
-  // SIMPLE body scroll lock - NO position fixed on body
+  // Simple body scroll lock - NO position fixed
   useEffect(() => {
     if (isInChatMode) {
       document.documentElement.classList.add("chat-mode");
@@ -160,7 +160,7 @@ export default function Home() {
   };
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // CHAT MODE — Simple fixed overlay
+  // CHAT MODE — NO wrapper divs, NO overflow-hidden (this breaks sticky!)
   // ═══════════════════════════════════════════════════════════════════════════════
   if (isInChatMode) {
     return (

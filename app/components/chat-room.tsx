@@ -229,21 +229,6 @@ export default function ChatRoom({
 
   const t = themeConfig[theme];
 
-  // Get header height for padding calculation
-  const [headerHeight, setHeaderHeight] = useState(56);
-  const [badgeHeight, setBadgeHeight] = useState(40);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const badgeRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (headerRef.current) {
-      setHeaderHeight(headerRef.current.offsetHeight);
-    }
-    if (badgeRef.current) {
-      setBadgeHeight(badgeRef.current.offsetHeight);
-    }
-  }, []);
-
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -327,14 +312,18 @@ export default function ChatRoom({
     wsService.send({ type: "typing", data: { is_typing: isTyping } });
   }, []);
 
-  const totalTopOffset = headerHeight + badgeHeight;
-
   return (
-    <div className={`relative h-full w-full ${t.bg}`}>
-      {/* HEADER — fixed at top */}
+    <div
+      className={`flex flex-col ${t.bg}`}
+      style={{
+        height: "100dvh",
+        width: "100%",
+        overflow: "hidden",
+      }}
+    >
+      {/* HEADER — flex-shrink-0 keeps it at top (Instagram style) */}
       <div
-        ref={headerRef}
-        className={`fixed top-0 left-0 right-0 z-20 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
+        className={`flex-shrink-0 z-20 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
       >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -444,11 +433,9 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* BADGE — fixed below header */}
+      {/* BADGE — flex-shrink-0 stays below header */}
       <div
-        ref={badgeRef}
-        className={`fixed left-0 right-0 z-10 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
-        style={{ top: `${headerHeight}px` }}
+        className={`flex-shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
       >
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
@@ -457,15 +444,10 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* MESSAGES — scrollable area with top padding to avoid fixed header/badge */}
+      {/* MESSAGES — flex-1 min-h-0 makes ONLY this area scroll (Instagram style) */}
       <div
         ref={scrollRef}
-        className="absolute left-0 right-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
-        style={{
-          top: `${totalTopOffset}px`,
-          bottom: "auto",
-          height: `calc(100% - ${totalTopOffset}px)`,
-        }}
+        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1 chat-messages-scroll"
       >
         {messages.map((msg) => (
           <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
@@ -494,8 +476,8 @@ export default function ChatRoom({
         )}
       </div>
 
-      {/* INPUT — fixed at bottom */}
-      <div className="fixed bottom-0 left-0 right-0 z-10">
+      {/* INPUT — flex-shrink-0 stays at bottom (keyboard pushes this up naturally) */}
+      <div className="flex-shrink-0">
         <ChatInput
           onSend={handleSend}
           onTyping={handleTyping}

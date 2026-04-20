@@ -34,15 +34,27 @@ export default function Home() {
 
   const isInChatMode = view === "chat" || view === "match";
 
-  // Lock body scroll when in chat mode
+  // Lock body scroll when in chat mode (Instagram style)
   useEffect(() => {
     if (isInChatMode) {
       document.documentElement.classList.add("chat-mode");
+      document.body.style.position = "fixed";
+      document.body.style.width = "100%";
+      document.body.style.height = "100%";
+      document.body.style.overflow = "hidden";
     } else {
       document.documentElement.classList.remove("chat-mode");
+      document.body.style.position = "";
+      document.body.style.width = "";
+      document.body.style.height = "";
+      document.body.style.overflow = "";
     }
     return () => {
       document.documentElement.classList.remove("chat-mode");
+      document.body.style.position = "";
+      document.body.style.width = "";
+      document.body.style.height = "";
+      document.body.style.overflow = "";
     };
   }, [isInChatMode]);
 
@@ -160,7 +172,7 @@ export default function Home() {
   };
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // CHAT MODE — Full viewport overlay, body scroll locked via .chat-mode
+  // CHAT MODE — Full viewport overlay (Instagram style)
   // ═══════════════════════════════════════════════════════════════════════════════
   if (isInChatMode) {
     return (

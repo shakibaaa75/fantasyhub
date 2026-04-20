@@ -149,32 +149,36 @@ export default function Home() {
     return false;
   };
 
-  // For chat mode, render without any wrappers
+  // For chat mode, render with fullscreen overlay
   if (isInChatMode) {
     return (
-      <>
+      <div className="fixed inset-0 z-50 bg-void">
         {view === "match" && (
-          <MatchFound
-            strangerName={strangerName}
-            sharedTags={sharedTags}
-            onChat={() => setView("chat")}
-            onSkip={handleSkipFromMatch}
-          />
+          <div className="h-full w-full">
+            <MatchFound
+              strangerName={strangerName}
+              sharedTags={sharedTags}
+              onChat={() => setView("chat")}
+              onSkip={handleSkipFromMatch}
+            />
+          </div>
         )}
 
         {view === "chat" && (
-          <ChatRoom
-            strangerName={strangerName}
-            sharedTags={sharedTags}
-            matchId={matchId}
-            onReport={() => setShowReport(true)}
-            onSkip={() => setShowSkip(true)}
-            onBack={() => {
-              wsService.disconnect();
-              setView("welcome");
-              setIsSearching(false);
-            }}
-          />
+          <div className="h-full w-full">
+            <ChatRoom
+              strangerName={strangerName}
+              sharedTags={sharedTags}
+              matchId={matchId}
+              onReport={() => setShowReport(true)}
+              onSkip={() => setShowSkip(true)}
+              onBack={() => {
+                wsService.disconnect();
+                setView("welcome");
+                setIsSearching(false);
+              }}
+            />
+          </div>
         )}
 
         {/* Modals */}
@@ -196,7 +200,7 @@ export default function Home() {
             onDone={() => setToast(null)}
           />
         )}
-      </>
+      </div>
     );
   }
 

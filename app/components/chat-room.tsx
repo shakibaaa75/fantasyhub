@@ -313,10 +313,10 @@ export default function ChatRoom({
   }, []);
 
   return (
-    <div className={`fixed inset-0 ${t.bg} flex flex-col`}>
+    <div className={`flex flex-col h-full w-full ${t.bg}`}>
       {/* HEADER */}
       <div
-        className={`shrink-0 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
+        className={`flex-shrink-0 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md z-10`}
       >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -427,7 +427,9 @@ export default function ChatRoom({
       </div>
 
       {/* BADGE */}
-      <div className={`shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}>
+      <div
+        className={`flex-shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
+      >
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
         >
@@ -435,47 +437,40 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* MESSAGES - THIS MUST SCROLL */}
+      {/* MESSAGES - SCROLLABLE AREA */}
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1 overscroll-contain"
+        className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
       >
-        <AnimatePresence>
-          {messages.map((msg) => (
-            <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
-          ))}
-          {isStrangerTyping && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="flex justify-start w-full mb-1"
+        {messages.map((msg) => (
+          <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
+        ))}
+        {isStrangerTyping && (
+          <div className="flex justify-start w-full mb-1">
+            <div
+              className={`${t.typingBg} rounded-[1.15rem] rounded-tl-md px-3 sm:px-4 py-2.5 sm:py-3`}
             >
-              <div
-                className={`${t.typingBg} rounded-[1.15rem] rounded-tl-md px-3 sm:px-4 py-2.5 sm:py-3`}
-              >
-                <div className="flex gap-1">
-                  <div
-                    className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
-                    style={{ animationDelay: "0ms" }}
-                  />
-                  <div
-                    className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
-                    style={{ animationDelay: "150ms" }}
-                  />
-                  <div
-                    className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
-                    style={{ animationDelay: "300ms" }}
-                  />
-                </div>
+              <div className="flex gap-1">
+                <div
+                  className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <div
+                  className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <div
+                  className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
+                  style={{ animationDelay: "300ms" }}
+                />
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* INPUT */}
-      <div className="shrink-0">
+      <div className="flex-shrink-0">
         <ChatInput
           onSend={handleSend}
           onTyping={handleTyping}

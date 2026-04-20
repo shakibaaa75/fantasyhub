@@ -58,10 +58,13 @@
   0% { background-position: 200% center; }
   100% { background-position: -200% center; }
 }
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
 
 * {
   box-sizing: border-box;
- 
 }
 
 body {
@@ -73,18 +76,10 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
 
-/* Add to the existing keyframes */
-@keyframes bounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-4px); opacity: 1; }
-}
-
-/* Replace the dot animation with bounce */
 .animate-bounce {
   animation: bounce 1.4s ease infinite;
 }
 
-/* Add to globals.css */
 phantom-ui[loading] * {
   -webkit-text-fill-color: transparent !important;
   pointer-events: none;
@@ -95,30 +90,26 @@ phantom-ui[loading] img, phantom-ui[loading] svg {
 }
 
 /* Prevent iOS zoom on input focus */
-/* Prevent iOS zoom on input focus */
 input, textarea {
   font-size: 16px !important;
 }
 
-/* Ensure body/html don't add extra scroll */
-html, body {
+/* REMOVED - This was blocking scrolling on the entire page */
+/* html, body {
   height: 100%;
-  overflow: hidden; /* Prevent body scroll, let the chat container handle it */
-}
+  overflow: hidden;
+} */
 
-/* iOS Safari: ensure dvh works properly */
 @supports (height: 100dvh) {
   .h-dvh-fix {
     height: 100dvh;
   }
 }
 
-/* Ensure fixed elements don't block pointer events on children */
 .fixed {
   pointer-events: auto;
 }
 
-/* Prevent iOS Safari from breaking scrolling in fixed containers */
 @supports (-webkit-touch-callout: none) {
   .fixed {
     -webkit-transform: translateZ(0);

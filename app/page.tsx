@@ -34,7 +34,7 @@ export default function Home() {
 
   const isInChatMode = view === "chat" || view === "match";
 
-  // ═══ Toggle body scroll lock when entering/leaving chat mode ═══
+  // Lock body scroll when in chat mode
   useEffect(() => {
     if (isInChatMode) {
       document.documentElement.classList.add("chat-mode");
@@ -160,11 +160,11 @@ export default function Home() {
   };
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // CHAT MODE — fixed inset-0 + flex flex-col, children use h-full
+  // CHAT MODE — Full viewport overlay, body scroll locked via .chat-mode
   // ═══════════════════════════════════════════════════════════════════════════════
   if (isInChatMode) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-void overflow-hidden">
+      <div className="fixed inset-0 z-50 bg-void overflow-hidden">
         {view === "match" && (
           <div className="h-full w-full overflow-hidden">
             <MatchFound
@@ -216,11 +216,11 @@ export default function Home() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // NON-CHAT MODE
+  // NON-CHAT MODE — Normal website
   // ═══════════════════════════════════════════════════════════════════════════════
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10">
+      <header className="fixed top-0 left-0 right-0 w-full z-40 bg-black/80 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div
             className="flex items-center gap-2 cursor-pointer"
@@ -291,7 +291,7 @@ export default function Home() {
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 w-full z-50 bg-[#0e0a14]/90 backdrop-blur-xl border-t border-white/[0.08] pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed bottom-0 left-0 right-0 w-full z-40 bg-[#0e0a14]/90 backdrop-blur-xl border-t border-white/[0.08] pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-center justify-between max-w-lg mx-auto w-full px-4 py-2">
           <button
             onClick={() => {

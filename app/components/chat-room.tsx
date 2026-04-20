@@ -313,11 +313,9 @@ export default function ChatRoom({
   }, []);
 
   return (
-    <div className={`flex flex-col h-full w-full ${t.bg} overflow-hidden`}>
-      {/* ═══ HEADER — flex-shrink-0 keeps it fixed at top ═══ */}
-      <div
-        className={`flex-shrink-0 z-20 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
-      >
+    <div className={`chat-root ${t.bg}`}>
+      {/* HEADER — sticky top-0 */}
+      <div className={`chat-header ${t.headerBg} border-b ${t.headerBorder}`}>
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             {onBack && (
@@ -426,10 +424,8 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* ═══ BADGE — flex-shrink-0 keeps it fixed below header ═══ */}
-      <div
-        className={`flex-shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
-      >
+      {/* BADGE — sticky below header */}
+      <div className={`chat-badge flex justify-center px-4 pt-2 pb-1 ${t.bg}`}>
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
         >
@@ -437,11 +433,8 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* ═══ MESSAGES — flex-1 min-h-0 is THE KEY for scrollable area ═══ */}
-      <div
-        ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
-      >
+      {/* MESSAGES — ONLY this scrolls */}
+      <div ref={scrollRef} className="chat-messages">
         {messages.map((msg) => (
           <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
         ))}
@@ -469,8 +462,8 @@ export default function ChatRoom({
         )}
       </div>
 
-      {/* ═══ INPUT — flex-shrink-0 keeps it fixed at bottom ═══ */}
-      <div className="flex-shrink-0">
+      {/* INPUT — stays at bottom */}
+      <div className="chat-input-wrapper">
         <ChatInput
           onSend={handleSend}
           onTyping={handleTyping}

@@ -12,6 +12,7 @@ import SkipModal from "@/app/components/skip-modal";
 import Toast from "@/app/components/toast";
 import LoginModal from "@/app/components/login-modal";
 import RegisterModal from "@/app/components/register-modal";
+import SettingsModal from "@/app/components/settings-modal";
 import { wsService } from "@/lib/websocket-service";
 
 export default function Home() {
@@ -24,11 +25,15 @@ export default function Home() {
   const [showSkip, setShowSkip] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [toast, setToast] = useState<{
     msg: string;
     type: "info" | "warn" | "success";
   } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Check if we're in a chat/message view (hide bottom nav)
+  const hideBottomNav = view === "chat" || view === "match";
 
   const notify = useCallback(
     (msg: string, type: "info" | "warn" | "success" = "info") => {
@@ -140,15 +145,18 @@ export default function Home() {
     if (tabView === "home") return view === "welcome";
     if (tabView === "find") return view === "tags" || view === "searching";
     if (tabView === "chat") return view === "match" || view === "chat";
+    if (tabView === "settings") return showSettings;
     return false;
   };
 
   return (
     <>
       {/* ========================================== */}
-      {/* STICKY TOP HEADER (Your exact design)      */}
+      {/* STICKY TOP HEADER - Hidden in chat mode? Actually keep it but adjust */}
       {/* ========================================== */}
-      <header className="fixed top-0 left-0 right-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10">
+      <header
+        className={`fixed top-0 left-0 right-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10 transition-transform duration-300 ${hideBottomNav ? "translate-y-0" : ""}`}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Logo */}
           <div
@@ -164,40 +172,58 @@ export default function Home() {
             </span>
           </div>
 
-          {/* Navigation Actions */}
-          <div className="flex items-center gap-3">
-            {view === "welcome" || view === "tags" ? (
-              <>
-                <button
-                  onClick={() => handleNavigate("login")}
-                  className="text-sm font-medium text-gray-300 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/10"
-                >
-                  Log In
-                </button>
-                <button
-                  onClick={() => handleNavigate("register")}
-                  className="text-sm font-medium text-black bg-white hover:bg-gray-200 transition-colors px-4 py-2 rounded-lg"
-                >
-                  Sign Up
-                </button>
-              </>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                <span className="hidden sm:inline">
-                  {isSearching ? "Searching..." : "Connected"}
-                </span>
-              </div>
-            )}
-          </div>
+          {/* Navigation Actions - Hide in chat/match mode for cleaner UI */}
+          {!hideBottomNav && (
+            <div className="flex items-center gap-3">
+              {view === "welcome" || view === "tags" ? (
+                <>
+                  <button
+                    onClick={() => handleNavigate("login")}
+                    className="text-sm font-medium text-gray-300 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/10"
+                  >
+                    Log In
+                  </button>
+                  <button
+                    onClick={() => handleNavigate("register")}
+                    className="text-sm font-medium text-black bg-white hover:bg-gray-200 transition-colors px-4 py-2 rounded-lg"
+                  >
+                    Sign Up
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                  <span className="hidden sm:inline">
+                    {isSearching ? "Searching..." : "Connected"}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Show a close/back button in chat mode */}
+          {hideBottomNav && (
+            <button
+              onClick={() => {
+                wsService.disconnect();
+                setView("welcome");
+                setIsSearching(false);
+              }}
+              className="text-sm font-medium text-gray-300 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/10"
+            >
+              Exit Chat
+            </button>
+          )}
         </div>
       </header>
 
       {/* ========================================== */}
       {/* MAIN CONTENT                               */}
       {/* ========================================== */}
-      {/* pt-16 for top header, pb-24 for bottom nav */}
-      <main className="min-h-[100dvh] pt-16 pb-24 bg-[#0a0a0a] text-white">
+      {/* Adjust padding: no bottom padding when chat is fullscreen */}
+      <main
+        className={`min-h-[100dvh] ${hideBottomNav ? "pt-16 pb-0" : "pt-16 pb-24"} bg-[#0a0a0a] text-white`}
+      >
         {view === "welcome" && (
           <WelcomeHero
             onStart={() => setView("tags")}
@@ -240,140 +266,152 @@ export default function Home() {
             matchId={matchId}
             onReport={() => setShowReport(true)}
             onSkip={() => setShowSkip(true)}
+            onBack={() => {
+              wsService.disconnect();
+              setView("welcome");
+              setIsSearching(false);
+            }}
           />
         )}
       </main>
 
       {/* ========================================== */}
-      {/* IOS FACEBOOK STYLE BOTTOM NAVBAR (GAPPED)  */}
+      {/* BOTTOM NAVBAR - Hidden in chat/match mode  */}
       {/* ========================================== */}
-      <nav className="fixed bottom-0 left-0 right-0 w-full z-50 bg-[#0e0a14]/90 backdrop-blur-xl border-t border-white/[0.08] pb-[env(safe-area-inset-bottom)]">
-        <div className="flex items-center justify-between max-w-lg mx-auto w-full px-4 py-2">
-          {/* Home Button */}
-          <button
-            onClick={() => {
-              wsService.disconnect();
-              setView("welcome");
-              setIsSearching(false);
-            }}
-            className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 py-2 rounded-xl transition-all duration-200 ${isActive("home") ? "text-white" : "text-neutral-500 hover:text-neutral-300"}`}
-          >
-            {isActive("home") && (
-              <div className="absolute inset-0 rounded-xl bg-purple-500/20 border border-purple-500/30"></div>
-            )}
-            <span className="relative z-10">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path>
-                <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-              </svg>
-            </span>
-            <span
-              className={`relative z-10 text-[10px] tracking-[0.08em] font-medium ${isActive("home") ? "text-purple-300" : ""}`}
+      {!hideBottomNav && (
+        <nav className="fixed bottom-0 left-0 right-0 w-full z-50 bg-[#0e0a14]/90 backdrop-blur-xl border-t border-white/[0.08] pb-[env(safe-area-inset-bottom)]">
+          <div className="flex items-center justify-between max-w-lg mx-auto w-full px-4 py-2">
+            {/* Home Button */}
+            <button
+              onClick={() => {
+                wsService.disconnect();
+                setView("welcome");
+                setIsSearching(false);
+              }}
+              className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 py-2 rounded-xl transition-all duration-200 ${isActive("home") ? "text-white" : "text-neutral-500 hover:text-neutral-300"}`}
             >
-              Home
-            </span>
-          </button>
-
-          {/* Find Button */}
-          <button
-            onClick={() => {
-              if (view !== "searching") setView("tags");
-            }}
-            className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 py-2 rounded-xl transition-all duration-200 ${isActive("find") ? "text-white" : "text-neutral-500 hover:text-neutral-300"}`}
-          >
-            {isActive("find") && (
-              <div className="absolute inset-0 rounded-xl bg-purple-500/20 border border-purple-500/30"></div>
-            )}
-            <span className="relative z-10">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              {isActive("home") && (
+                <div className="absolute inset-0 rounded-xl bg-purple-500/20 border border-purple-500/30"></div>
+              )}
+              <span className="relative z-10">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path>
+                  <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                </svg>
+              </span>
+              <span
+                className={`relative z-10 text-[10px] tracking-[0.08em] font-medium ${isActive("home") ? "text-purple-300" : ""}`}
               >
-                <path d="m21 21-4.34-4.34"></path>
-                <circle cx="11" cy="11" r="8"></circle>
-              </svg>
-            </span>
-            <span
-              className={`relative z-10 text-[10px] tracking-[0.08em] font-medium ${isActive("find") ? "text-purple-300" : ""}`}
+                Home
+              </span>
+            </button>
+
+            {/* Find Button */}
+            <button
+              onClick={() => {
+                if (view !== "searching") setView("tags");
+              }}
+              className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 py-2 rounded-xl transition-all duration-200 ${isActive("find") ? "text-white" : "text-neutral-500 hover:text-neutral-300"}`}
             >
-              Find
-            </span>
-          </button>
-
-          {/* Chat Button (Disabled when not in a match) */}
-          <button
-            disabled={!isActive("chat")}
-            className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 py-2 rounded-xl transition-all duration-200 ${isActive("chat") ? "text-white" : "text-neutral-700 cursor-not-allowed"}`}
-          >
-            {isActive("chat") && (
-              <div className="absolute inset-0 rounded-xl bg-purple-500/20 border border-purple-500/30"></div>
-            )}
-            <span className="relative z-10">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              {isActive("find") && (
+                <div className="absolute inset-0 rounded-xl bg-purple-500/20 border border-purple-500/30"></div>
+              )}
+              <span className="relative z-10">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m21 21-4.34-4.34"></path>
+                  <circle cx="11" cy="11" r="8"></circle>
+                </svg>
+              </span>
+              <span
+                className={`relative z-10 text-[10px] tracking-[0.08em] font-medium ${isActive("find") ? "text-purple-300" : ""}`}
               >
-                <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"></path>
-              </svg>
-            </span>
-            <span
-              className={`relative z-10 text-[10px] tracking-[0.08em] font-medium ${isActive("chat") ? "text-purple-300" : ""}`}
+                Find
+              </span>
+            </button>
+
+            {/* Chat Button (Disabled when not in a match) */}
+            <button
+              disabled={!isActive("chat")}
+              className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 py-2 rounded-xl transition-all duration-200 ${isActive("chat") ? "text-white" : "text-neutral-700 cursor-not-allowed"}`}
             >
-              Chat
-            </span>
-          </button>
-
-          {/* Settings Button (Disabled for now) */}
-          <button
-            disabled
-            className="relative flex flex-col items-center justify-center gap-1.5 flex-1 py-2 rounded-xl transition-all duration-200 text-neutral-700 cursor-not-allowed"
-          >
-            <span className="relative z-10">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              {isActive("chat") && (
+                <div className="absolute inset-0 rounded-xl bg-purple-500/20 border border-purple-500/30"></div>
+              )}
+              <span className="relative z-10">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"></path>
+                </svg>
+              </span>
+              <span
+                className={`relative z-10 text-[10px] tracking-[0.08em] font-medium ${isActive("chat") ? "text-purple-300" : ""}`}
               >
-                <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-              </svg>
-            </span>
-            <span className="relative z-10 text-[10px] tracking-[0.08em] font-medium">
-              Settings
-            </span>
-          </button>
-        </div>
-      </nav>
+                Chat
+              </span>
+            </button>
+
+            {/* Settings Button */}
+            <button
+              onClick={() => setShowSettings(true)}
+              className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 py-2 rounded-xl transition-all duration-200 ${isActive("settings") ? "text-white" : "text-neutral-500 hover:text-neutral-300"}`}
+            >
+              {isActive("settings") && (
+                <div className="absolute inset-0 rounded-xl bg-purple-500/20 border border-purple-500/30"></div>
+              )}
+              <span className="relative z-10">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </span>
+              <span
+                className={`relative z-10 text-[10px] tracking-[0.08em] font-medium ${isActive("settings") ? "text-purple-300" : ""}`}
+              >
+                Settings
+              </span>
+            </button>
+          </div>
+        </nav>
+      )}
 
       {/* ========================================== */}
       {/* MODALS & TOASTS                            */}
@@ -394,6 +432,8 @@ export default function Home() {
           setShowLogin(true);
         }}
       />
+
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
       {showReport && (
         <ReportModal

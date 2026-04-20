@@ -229,6 +229,21 @@ export default function ChatRoom({
 
   const t = themeConfig[theme];
 
+  // Get header height for padding calculation
+  const [headerHeight, setHeaderHeight] = useState(56);
+  const [badgeHeight, setBadgeHeight] = useState(40);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const badgeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (headerRef.current) {
+      setHeaderHeight(headerRef.current.offsetHeight);
+    }
+    if (badgeRef.current) {
+      setBadgeHeight(badgeRef.current.offsetHeight);
+    }
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -312,10 +327,15 @@ export default function ChatRoom({
     wsService.send({ type: "typing", data: { is_typing: isTyping } });
   }, []);
 
+  const totalTopOffset = headerHeight + badgeHeight;
+
   return (
-    <div className={`chat-root ${t.bg}`}>
-      {/* HEADER — sticky top-0 */}
-      <div className={`chat-header ${t.headerBg} border-b ${t.headerBorder}`}>
+    <div className={`relative h-full w-full ${t.bg}`}>
+      {/* HEADER — fixed at top */}
+      <div
+        ref={headerRef}
+        className={`fixed top-0 left-0 right-0 z-20 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
+      >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             {onBack && (
@@ -424,8 +444,12 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* BADGE — sticky below header */}
-      <div className={`chat-badge flex justify-center px-4 pt-2 pb-1 ${t.bg}`}>
+      {/* BADGE — fixed below header */}
+      <div
+        ref={badgeRef}
+        className={`fixed left-0 right-0 z-10 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
+        style={{ top: `${headerHeight}px` }}
+      >
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
         >
@@ -433,8 +457,16 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* MESSAGES — ONLY this scrolls */}
-      <div ref={scrollRef} className="chat-messages">
+      {/* MESSAGES — scrollable area with top padding to avoid fixed header/badge */}
+      <div
+        ref={scrollRef}
+        className="absolute left-0 right-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
+        style={{
+          top: `${totalTopOffset}px`,
+          bottom: "auto",
+          height: `calc(100% - ${totalTopOffset}px)`,
+        }}
+      >
         {messages.map((msg) => (
           <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
         ))}
@@ -462,8 +494,8 @@ export default function ChatRoom({
         )}
       </div>
 
-      {/* INPUT — stays at bottom */}
-      <div className="chat-input-wrapper">
+      {/* INPUT — fixed at bottom */}
+      <div className="fixed bottom-0 left-0 right-0 z-10">
         <ChatInput
           onSend={handleSend}
           onTyping={handleTyping}

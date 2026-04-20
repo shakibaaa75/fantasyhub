@@ -207,7 +207,6 @@ export const themeConfig: Record<
   },
 };
 
-// Memoized message component to prevent unnecessary re-renders
 const MemoizedChatMessage = memo(ChatMessage);
 
 export default function ChatRoom({
@@ -315,12 +314,10 @@ export default function ChatRoom({
 
   return (
     <div
-      className={`h-[100dvh] ${t.bg} transition-colors duration-500 flex flex-col`}
+      className={`h-[100dvh] ${t.bg} transition-colors duration-500 flex flex-col overflow-hidden`}
     >
-      {/* Header - Sticky */}
-      <div
-        className={`sticky top-0 z-20 flex-none ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
-      >
+      {/* Header - Fixed at top via flex-none, NO sticky needed */}
+      <div className={`shrink-0 ${t.headerBg} border-b ${t.headerBorder}`}>
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             {onBack && (
@@ -429,8 +426,8 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* Match badge - Sticky */}
-      <div className="sticky top-12 sm:top-14 z-10 flex-none flex justify-center px-4 pt-2 pb-1 bg-inherit">
+      {/* Match badge - Fixed below header via flex-none, NO sticky needed */}
+      <div className="shrink-0 flex justify-center px-4 pt-2 pb-1">
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
         >
@@ -438,10 +435,10 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* Messages - Scrollable */}
+      {/* Messages - ONLY this section scrolls */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
+        className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
       >
         <AnimatePresence>
           {messages.map((msg) => (
@@ -477,13 +474,15 @@ export default function ChatRoom({
         </AnimatePresence>
       </div>
 
-      {/* Input - Fixed at bottom */}
-      <ChatInput
-        onSend={handleSend}
-        onTyping={handleTyping}
-        timer={timer}
-        theme={theme}
-      />
+      {/* Input - Fixed at bottom via flex-none */}
+      <div className="shrink-0">
+        <ChatInput
+          onSend={handleSend}
+          onTyping={handleTyping}
+          timer={timer}
+          theme={theme}
+        />
+      </div>
     </div>
   );
 }

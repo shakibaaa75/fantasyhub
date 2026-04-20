@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Users, Sparkles, CheckCircle2 } from "lucide-react";
+import { Loader2, Users, Sparkles } from "lucide-react";
 
 interface SearchingProps {
   selectedTags: string[];
@@ -31,12 +31,27 @@ const steps = [
   },
 ];
 
+// CSS animations — compositor thread, zero JS overhead
+const ANIM_STYLES = `
+  @keyframes sr-blob {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.1); opacity: 0.9; }
+  }
+  .sr-blob { animation: sr-blob 8s ease-in-out infinite; will-change: transform, opacity; }
+  .sr-paused * { animation-play-state: paused !important; }
+`;
+
+function StyleTag() {
+  return <style dangerouslySetInnerHTML={{ __html: ANIM_STYLES }} />;
+}
+
 export default function Searching({
   selectedTags,
   onMatch,
   onCancel,
 }: SearchingProps) {
   const [step, setStep] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const si = setInterval(() => {
@@ -52,24 +67,39 @@ export default function Searching({
     };
   }, [onMatch]);
 
+  // Pause CSS animations when tab hidden
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const handler = () => {
+      if (document.hidden) el.classList.add("sr-paused");
+      else el.classList.remove("sr-paused");
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+
   const CurrentIcon = steps[step].icon;
 
   return (
-    <div className="relative flex flex-col min-h-[100dvh] overflow-hidden">
+    <div
+      ref={rootRef}
+      className="relative flex flex-col min-h-[100dvh] overflow-hidden"
+    >
+      <StyleTag />
+
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-void via-[#0a0515] to-[#08020e]" />
 
-      {/* Ambient lights */}
-      <motion.div
-        className="absolute w-[600px] h-[600px] rounded-full pointer-events-none"
+      {/* Ambient light — pure CSS, no Framer Motion loop */}
+      <div
+        className="absolute w-[600px] h-[600px] rounded-full pointer-events-none sr-blob"
         style={{
           left: "15%",
           top: "5%",
           background:
             "radial-gradient(circle, rgba(94,61,140,0.12) 0%, transparent 70%)",
         }}
-        animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.9, 0.6] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
 
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">

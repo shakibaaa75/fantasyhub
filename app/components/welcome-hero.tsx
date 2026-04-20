@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import NavigationBar from "./navigation-bar";
 import { View } from "@/lib/types";
 
 interface WelcomeHeroProps {
@@ -12,34 +11,42 @@ interface WelcomeHeroProps {
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-interface ParticleData {
-  x: string;
-  y: string;
-  size: number;
-  opacity: number;
-  duration: number;
-}
+// All repeat:Infinity framer-motion loops replaced with CSS keyframes.
+// CSS animations run on the compositor thread — zero JS overhead per frame.
+const ANIM_STYLES = `
+  @keyframes wh-float {
+    0%, 100% { transform: translateY(0px); }
+    50%       { transform: translateY(-8px); }
+  }
+  @keyframes wh-float-sm {
+    0%, 100% { transform: translateY(0px); }
+    50%       { transform: translateY(-5px); }
+  }
+  @keyframes wh-scan {
+    from { top: -1px; }
+    to   { top: 100%; }
+  }
+  @keyframes wh-blink {
+    0%, 100% { opacity: 1;   transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.8); }
+  }
+  @keyframes wh-glow-pulse {
+    0%, 100% { opacity: 0.55; }
+    50%       { opacity: 0.9; }
+  }
 
-function Particle({ delay, data }: { delay: number; data: ParticleData }) {
-  return (
-    <motion.div
-      className="absolute rounded-full pointer-events-none"
-      style={{
-        left: data.x,
-        top: data.y,
-        width: data.size,
-        height: data.size,
-        background: `radial-gradient(circle, rgba(171,157,217,${data.opacity}) 0%, transparent 70%)`,
-      }}
-      animate={{ y: [0, -25, 0], opacity: [0.2, 0.5, 0.2] }}
-      transition={{
-        duration: data.duration,
-        repeat: Infinity,
-        delay,
-        ease: "easeInOut",
-      }}
-    />
-  );
+  .wh-float    { animation: wh-float    5s ease-in-out infinite; will-change: transform; }
+  .wh-float-sm { animation: wh-float-sm 5s ease-in-out infinite; will-change: transform; }
+  .wh-scan     { animation: wh-scan    22s linear        infinite; }
+  .wh-blink    { animation: wh-blink    2.5s ease        infinite; }
+  .wh-glow     { animation: wh-glow-pulse 7s ease-in-out infinite; }
+
+  /* Pause everything when tab is hidden — saves battery and heat */
+  .wh-paused * { animation-play-state: paused !important; }
+`;
+
+function StyleTag() {
+  return <style dangerouslySetInnerHTML={{ __html: ANIM_STYLES }} />;
 }
 
 function GhostChar({
@@ -73,7 +80,7 @@ function GhostChar({
   );
 }
 
-/* ========== MOBILE CHARACTER ========== */
+/* ── Mobile character ───────────────────────────────────────────────────────── */
 function MobileCharacter() {
   return (
     <div className="flex justify-center relative w-full">
@@ -83,52 +90,49 @@ function MobileCharacter() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.8, ease }}
       >
-        <motion.div
+        {/* Static ambient glow */}
+        <div
           className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2 w-[250px] h-[300px] rounded-full"
           style={{
             background:
-              "radial-gradient(circle, rgba(94,61,140,0.25) 0%, rgba(171,157,217,0.08) 30%, transparent 60%)",
+              "radial-gradient(circle, rgba(94,61,140,0.18) 0%, rgba(171,157,217,0.06) 30%, transparent 60%)",
           }}
-          animate={{ scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div
-          className="relative"
-          animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        >
+
+        {/* Float — pure CSS, no JS loop */}
+        <div className="relative wh-float-sm">
           <img
             src="/e06e9923-f461-4631-bbd4-d4d0a32cd898.png"
             alt="Character"
-            className="relative z-10 h-[240px] sm:h-[300px] w-auto max-w-full drop-shadow-[0_0_40px_rgba(94,61,140,0.25)]"
+            className="relative z-10 h-[240px] sm:h-[300px] w-auto max-w-full drop-shadow-[0_0_40px_rgba(94,61,140,0.22)]"
             draggable={false}
           />
-        </motion.div>
-        <motion.div
-          className="absolute top-[18%] left-1/2 -translate-x-1/2 z-0 w-24 h-24 rounded-full"
+        </div>
+
+        {/* Head glow — slow CSS pulse */}
+        <div
+          className="wh-glow absolute top-[18%] left-1/2 -translate-x-1/2 z-0 w-24 h-24 rounded-full"
           style={{
             background:
-              "radial-gradient(circle, rgba(171,157,217,0.35) 0%, rgba(94,61,140,0.15) 35%, transparent 65%)",
+              "radial-gradient(circle, rgba(171,157,217,0.26) 0%, rgba(94,61,140,0.09) 35%, transparent 65%)",
             filter: "blur(8px)",
           }}
-          animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.15, 1] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div
+
+        {/* Shadow — static */}
+        <div
           className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-32 h-3 rounded-full"
           style={{
             background:
-              "radial-gradient(ellipse, rgba(94,61,140,0.2) 0%, transparent 70%)",
+              "radial-gradient(ellipse, rgba(94,61,140,0.14) 0%, transparent 70%)",
           }}
-          animate={{ scaleX: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
         />
       </motion.div>
     </div>
   );
 }
 
-/* ========== DESKTOP CHARACTER ========== */
+/* ── Desktop character ──────────────────────────────────────────────────────── */
 function DesktopCharacter() {
   return (
     <div className="hidden xl:flex absolute right-0 top-0 bottom-0 w-[45%] items-center justify-center pointer-events-none">
@@ -138,82 +142,65 @@ function DesktopCharacter() {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 1.2, delay: 0.4, ease }}
       >
-        <motion.div
+        {/* All glows are static — no animation */}
+        <div
           className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2 w-[500px] h-[600px] rounded-full"
           style={{
             background:
-              "radial-gradient(circle, rgba(94,61,140,0.3) 0%, rgba(171,157,217,0.1) 30%, transparent 60%)",
+              "radial-gradient(circle, rgba(94,61,140,0.2) 0%, rgba(171,157,217,0.06) 30%, transparent 60%)",
           }}
-          animate={{ scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div
+        <div
           className="absolute left-[55%] top-[55%] -translate-x-1/2 -translate-y-1/2 w-[300px] h-[400px] rounded-full"
           style={{
             background:
-              "radial-gradient(circle, rgba(239,148,202,0.15) 0%, transparent 55%)",
-          }}
-          animate={{ scale: [1, 1.12, 1], opacity: [0.5, 0.8, 0.5] }}
-          transition={{
-            duration: 6,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 1.5,
+              "radial-gradient(circle, rgba(239,148,202,0.09) 0%, transparent 55%)",
           }}
         />
-        <motion.div
-          className="relative"
-          animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        >
+
+        {/* Float — pure CSS */}
+        <div className="relative wh-float">
           <img
             src="/41c547d1-9636-43ff-b9fa-d36ed1ae09c6.png"
             alt="Character"
-            className="relative h-[800px] w-auto max-w-full drop-shadow-[0_0_60px_rgba(94,61,140,0.3)]"
+            className="relative h-[800px] w-auto max-w-full drop-shadow-[0_0_60px_rgba(94,61,140,0.26)]"
             draggable={false}
           />
-        </motion.div>
-        <motion.div
-          className="absolute top-[18%] left-1/2 -translate-x-1/2 z-0 w-36 h-36 rounded-full"
+        </div>
+
+        {/* Head glow — slow CSS pulse */}
+        <div
+          className="wh-glow absolute top-[18%] left-1/2 -translate-x-1/2 z-0 w-36 h-36 rounded-full"
           style={{
             background:
-              "radial-gradient(circle, rgba(171,157,217,0.4) 0%, rgba(94,61,140,0.15) 35%, transparent 65%)",
+              "radial-gradient(circle, rgba(171,157,217,0.3) 0%, rgba(94,61,140,0.1) 35%, transparent 65%)",
             filter: "blur(8px)",
           }}
-          animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.15, 1] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         />
-        <motion.div
+
+        {/* Remaining glows — all static */}
+        <div
           className="absolute top-[50%] left-[48%] -translate-x-1/2 z-0 w-28 h-28 rounded-full"
           style={{
             background:
-              "radial-gradient(circle, rgba(239,148,202,0.25) 0%, transparent 60%)",
+              "radial-gradient(circle, rgba(239,148,202,0.16) 0%, transparent 60%)",
             filter: "blur(10px)",
-          }}
-          animate={{ opacity: [0.3, 0.7, 0.3], scale: [1, 1.2, 1] }}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 1,
           }}
         />
         <div
           className="absolute top-[5%] left-[30%] z-0 w-[260px] h-[440px] rounded-full"
           style={{
             background:
-              "radial-gradient(ellipse at center, rgba(171,157,217,0.08) 0%, transparent 70%)",
+              "radial-gradient(ellipse at center, rgba(171,157,217,0.04) 0%, transparent 70%)",
             filter: "blur(20px)",
           }}
         />
-        <motion.div
+        <div
           className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-56 h-5 rounded-full"
           style={{
             background:
-              "radial-gradient(ellipse, rgba(94,61,140,0.25) 0%, rgba(171,157,217,0.08) 40%, transparent 70%)",
+              "radial-gradient(ellipse, rgba(94,61,140,0.16) 0%, rgba(171,157,217,0.05) 40%, transparent 70%)",
           }}
-          animate={{ scaleX: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
         />
       </motion.div>
 
@@ -221,6 +208,7 @@ function DesktopCharacter() {
       <GhostChar x="70%" y="18%" label="STATUS" value="Waiting" delay={1.4} />
       <GhostChar x="5%" y="58%" label="MATCHES" value="∞" delay={1.6} />
 
+      {/* Connector lines — enter-once, no loop */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
         style={{ opacity: 0.06 }}
@@ -263,140 +251,79 @@ function DesktopCharacter() {
   );
 }
 
-/* ========== MAIN ========== */
-export default function WelcomeHero({ onStart, onNavigate }: WelcomeHeroProps) {
-  const [particles, setParticles] = useState<ParticleData[]>([]);
+/* ── Main ───────────────────────────────────────────────────────────────────── */
+export default function WelcomeHero({ onStart }: WelcomeHeroProps) {
+  const [isLoading, setIsLoading] = useState(true);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setParticles(
-      Array.from({ length: 15 }, () => ({
-        x: `${8 + Math.random() * 84}%`,
-        y: `${8 + Math.random() * 84}%`,
-        size: 3 + Math.random() * 5,
-        opacity: 0.25 + Math.random() * 0.3,
-        duration: 4 + Math.random() * 3,
-      })),
-    );
+    import("@aejkatappaja/phantom-ui");
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Pause ALL CSS animations when tab is hidden — significant battery/heat saving
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const handler = () => {
+      if (document.hidden) el.classList.add("wh-paused");
+      else el.classList.remove("wh-paused");
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
   }, []);
 
   return (
-    <div className="relative flex flex-col min-h-[100dvh] overflow-hidden">
-      {/* BG */}
+    <div
+      ref={rootRef}
+      className="relative flex flex-col h-full overflow-hidden"
+    >
+      <StyleTag />
+
+      {/* Static background */}
       <div className="absolute inset-0 bg-gradient-to-br from-void via-[#0a0515] to-[#08020e]" />
 
-      {/* Ambient lights */}
-      <motion.div
+      {/* Two static ambient blobs — zero animation cost */}
+      <div
         className="absolute w-[600px] h-[600px] rounded-full pointer-events-none"
         style={{
           left: "15%",
           top: "5%",
           background:
-            "radial-gradient(circle, rgba(94,61,140,0.12) 0%, transparent 70%)",
+            "radial-gradient(circle, rgba(94,61,140,0.08) 0%, transparent 70%)",
         }}
-        animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.9, 0.6] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
-      <motion.div
+      <div
         className="absolute w-[400px] h-[400px] rounded-full pointer-events-none"
         style={{
           right: "5%",
           bottom: "5%",
           background:
-            "radial-gradient(circle, rgba(239,148,202,0.07) 0%, transparent 70%)",
-        }}
-        animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
-        transition={{
-          duration: 7,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2,
+            "radial-gradient(circle, rgba(239,148,202,0.05) 0%, transparent 70%)",
         }}
       />
 
-      {/* Particles */}
-      {particles.map((p, i) => (
-        <Particle key={i} delay={i * 0.5} data={p} />
-      ))}
-
-      {/* Scan line */}
-      <motion.div
-        className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-lavender/15 to-transparent pointer-events-none"
-        animate={{ top: ["0%", "100%"] }}
-        transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
+      {/* Scan line — CSS only, very slow */}
+      <div
+        className="wh-scan absolute left-0 right-0 h-px pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(to right, transparent, rgba(171,157,217,0.07), transparent)",
+        }}
       />
 
-      {/* Desktop character */}
       <DesktopCharacter />
 
       {/* Content */}
       <div className="relative z-10 flex flex-col h-full flex-1">
-        {/* Nav */}
-        <motion.div
-          className="flex items-center justify-between px-6 md:px-12 py-6"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease }}
-        >
-          <div className="flex items-center gap-3">
-            <motion.div
-              className="w-9 h-9 rounded-xl bg-gradient-to-br from-plum to-blush flex items-center justify-center cursor-pointer"
-              whileHover={{ scale: 1.05, rotate: 5 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => onNavigate("welcome")}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z" />
-              </svg>
-            </motion.div>
-            <span className="text-sm font-display font-semibold tracking-tight text-white/90">
-              vibematch
-            </span>
-          </div>
-
-          {/* Auth buttons */}
-          <div className="flex items-center gap-3">
-            <motion.button
-              onClick={() => onNavigate("login")}
-              className="px-4 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white/70 font-display text-xs tracking-wide hover:bg-white/[0.08] hover:border-white/[0.14] hover:text-white/90 transition-all duration-200"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              Log In
-            </motion.button>
-            <motion.button
-              onClick={() => onNavigate("register")}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-plum to-blush text-white font-display text-xs tracking-wide font-semibold hover:shadow-[0_0_20px_rgba(94,61,140,0.35)] transition-shadow duration-300"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              Create Account
-            </motion.button>
-            <motion.div
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.025] border border-white/[0.05]"
-              whileHover={{ borderColor: "rgba(171,157,217,0.15)" }}
-            >
-              <span className="text-[10px] font-display text-lavender/50 tracking-[0.15em]">
-                v0.1
-              </span>
-            </motion.div>
-          </div>
-        </motion.div>
-
-        {/* Main content area */}
         <div className="flex-1 flex flex-col xl:flex-row overflow-y-auto">
-          {/* Text content section */}
-          <div className="flex-1 flex flex-col justify-center px-6 md:px-12 xl:py-26 xl:px-24">
+          <div className="flex-1 flex flex-col justify-center px-6 md:px-12 pt-16 xl:py-26 xl:px-24">
             <div className="max-w-2xl w-full mx-auto xl:mx-0 text-center xl:text-left">
-              {/* Tag */}
+              {/* Badge */}
               <motion.div
                 className="mb-8"
                 initial={{ opacity: 0, x: -30 }}
@@ -404,11 +331,8 @@ export default function WelcomeHero({ onStart, onNavigate }: WelcomeHeroProps) {
                 transition={{ duration: 0.7, delay: 0.2, ease }}
               >
                 <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/[0.025] border border-white/[0.05]">
-                  <motion.div
-                    className="w-1.5 h-1.5 rounded-full bg-blush"
-                    animate={{ opacity: [1, 0.4, 1], scale: [1, 0.8, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
+                  {/* Blink dot — CSS only, no framer-motion */}
+                  <div className="wh-blink w-1.5 h-1.5 rounded-full bg-blush" />
                   <span className="text-xs text-neutral-500 tracking-wide">
                     Anonymous · No account · Free
                   </span>
@@ -423,15 +347,17 @@ export default function WelcomeHero({ onStart, onNavigate }: WelcomeHeroProps) {
               >
                 Someone is
               </motion.h1>
+
               <motion.h1
                 className="text-[clamp(2.4rem,8vw,5rem)] font-display font-extrabold tracking-[-0.03em] leading-[1.08] mb-6"
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.9, delay: 0.4, ease }}
               >
+                {/* Shimmer — already a CSS keyframe in globals.css, slowed to 5s */}
                 <span
                   className="bg-gradient-to-r from-lavender via-blush to-lavender bg-clip-text text-transparent bg-[length:200%_auto]"
-                  style={{ animation: "shimmer 4s linear infinite" }}
+                  style={{ animation: "shimmer 5s linear infinite" }}
                 >
                   waiting for you.
                 </span>
@@ -502,40 +428,40 @@ export default function WelcomeHero({ onStart, onNavigate }: WelcomeHeroProps) {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 1, delay: 0.9 }}
               >
-                {[
-                  { value: "~4s", label: "MATCH TIME" },
-                  { value: "0", label: "ACCOUNTS" },
-                  { value: "24/7", label: "ONLINE" },
-                ].map((s, i) => (
-                  <motion.div
-                    key={s.label}
-                    className="flex flex-col items-center xl:items-start"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 1 + i * 0.1, ease }}
-                  >
-                    <span className="text-lg font-display font-bold text-white/80 tabular-nums">
-                      {s.value}
-                    </span>
-                    <span className="text-[10px] text-neutral-600 font-display tracking-[0.15em] mt-0.5">
-                      {s.label}
-                    </span>
-                  </motion.div>
-                ))}
+                <phantom-ui
+                  loading={isLoading}
+                  count={3}
+                  count-gap="12"
+                  reveal="0.3"
+                >
+                  {[
+                    { value: "~4s", label: "MATCH TIME" },
+                    { value: "0", label: "ACCOUNTS" },
+                    { value: "24/7", label: "ONLINE" },
+                  ].map((s, i) => (
+                    <motion.div
+                      key={s.label}
+                      className="flex flex-col items-center xl:items-start"
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 1 + i * 0.1, ease }}
+                    >
+                      <span className="text-lg font-display font-bold text-white/80 tabular-nums">
+                        {s.value}
+                      </span>
+                      <span className="text-[10px] text-neutral-600 font-display tracking-[0.15em] mt-0.5">
+                        {s.label}
+                      </span>
+                    </motion.div>
+                  ))}
+                </phantom-ui>
               </motion.div>
             </div>
           </div>
         </div>
-
-        {/* Navigation Bar */}
-        <NavigationBar
-          currentView="welcome"
-          onNavigate={onNavigate}
-          hasActiveChat={false}
-        />
       </div>
 
-      {/* Vignette */}
+      {/* Vignette — static */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{

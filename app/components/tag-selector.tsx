@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { tags, categories } from "@/lib/tags-data";
 import TagChip from "./tag-chip";
@@ -13,9 +13,29 @@ interface TagSelectorProps {
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
+// CSS animations run on compositor thread — zero JS overhead
+const ANIM_STYLES = `
+  @keyframes ts-blob-1 {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.1); opacity: 0.9; }
+  }
+  @keyframes ts-blob-2 {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.15); opacity: 0.8; }
+  }
+  .ts-blob-1 { animation: ts-blob-1 8s ease-in-out infinite; will-change: transform, opacity; }
+  .ts-blob-2 { animation: ts-blob-2 7s ease-in-out infinite 2s; will-change: transform, opacity; }
+  .ts-paused * { animation-play-state: paused !important; }
+`;
+
+function StyleTag() {
+  return <style dangerouslySetInnerHTML={{ __html: ANIM_STYLES }} />;
+}
+
 export default function TagSelector({ onContinue, onBack }: TagSelectorProps) {
   const [selected, setSelected] = useState<string[]>([]);
   const [cat, setCat] = useState("all");
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const toggle = useCallback((name: string) => {
     setSelected((prev) => {
@@ -29,37 +49,45 @@ export default function TagSelector({ onContinue, onBack }: TagSelectorProps) {
     cat === "all" ? tags : tags.filter((t) => t.category === cat);
   const canContinue = selected.length >= 3;
 
+  // Pause CSS animations when tab hidden — saves battery/heat
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const handler = () => {
+      if (document.hidden) el.classList.add("ts-paused");
+      else el.classList.remove("ts-paused");
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+
   return (
-    <div className="relative flex flex-col min-h-[100dvh] overflow-hidden">
+    <div
+      ref={rootRef}
+      className="relative flex flex-col min-h-[100dvh] overflow-hidden"
+    >
+      <StyleTag />
+
       {/* Background - matching Welcome page style */}
       <div className="absolute inset-0 bg-gradient-to-br from-void via-[#0a0515] to-[#08020e]" />
 
-      {/* Ambient lights - same as Welcome page */}
-      <motion.div
-        className="absolute w-[600px] h-[600px] rounded-full pointer-events-none"
+      {/* Ambient lights — pure CSS, no JS loop */}
+      <div
+        className="absolute w-[600px] h-[600px] rounded-full pointer-events-none ts-blob-1"
         style={{
           left: "15%",
           top: "5%",
           background:
             "radial-gradient(circle, rgba(94,61,140,0.12) 0%, transparent 70%)",
         }}
-        animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.9, 0.6] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
-      <motion.div
-        className="absolute w-[400px] h-[400px] rounded-full pointer-events-none"
+      <div
+        className="absolute w-[400px] h-[400px] rounded-full pointer-events-none ts-blob-2"
         style={{
           right: "5%",
           bottom: "5%",
           background:
             "radial-gradient(circle, rgba(239,148,202,0.07) 0%, transparent 70%)",
-        }}
-        animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.8, 0.5] }}
-        transition={{
-          duration: 7,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2,
         }}
       />
 

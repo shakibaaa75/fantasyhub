@@ -160,13 +160,13 @@ export default function Home() {
   };
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // CHAT MODE — fixed inset-0 forces viewport fill, flex-col keeps header fixed
+  // CHAT MODE — fixed inset-0 + flex flex-col, children use h-full
   // ═══════════════════════════════════════════════════════════════════════════════
   if (isInChatMode) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-void overflow-hidden">
         {view === "match" && (
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-full w-full overflow-hidden">
             <MatchFound
               strangerName={strangerName}
               sharedTags={sharedTags}
@@ -177,7 +177,7 @@ export default function Home() {
         )}
 
         {view === "chat" && (
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-full w-full overflow-hidden">
             <ChatRoom
               strangerName={strangerName}
               sharedTags={sharedTags}

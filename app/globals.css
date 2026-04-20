@@ -67,9 +67,21 @@
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+}
+
 body {
+  min-height: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* iOS Safari specific */
+@supports (-webkit-touch-callout: none) {
+  body {
+    min-height: 100dvh;
+  }
 }
 
 ::-webkit-scrollbar { width: 4px; }
@@ -94,15 +106,18 @@ input, textarea {
   font-size: 16px !important;
 }
 
-/* REMOVED - This was blocking scrolling on the entire page */
-/* html, body {
-  height: 100%;
-  overflow: hidden;
-} */
+/* Next.js root must fill viewport */
+#__next {
+  min-height: 100%;
+}
 
 @supports (height: 100dvh) {
   .h-dvh-fix {
     height: 100dvh;
+  }
+  
+  #__next {
+    min-height: 100dvh;
   }
 }
 
@@ -117,17 +132,31 @@ input, textarea {
   }
 }
 
-/* Add to globals.css */
-/* @media (max-width: 640px) {
-  .fixed {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-  }
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
-/* Ensure keyboard doesn't hide the send button */
-/* input, textarea, button {
+input, textarea, button {
   touch-action: manipulation;
-} */ 
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════ */
+/* CHAT MODE — Body scroll lock (applied via JS by adding .chat-mode to <html>)    */
+/* ═══════════════════════════════════════════════════════════════════════════════ */
+html.chat-mode,
+html.chat-mode body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+@supports (-webkit-touch-callout: none) {
+  html.chat-mode,
+  html.chat-mode body {
+    height: 100dvh;
+  }
+}

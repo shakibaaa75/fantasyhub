@@ -314,7 +314,7 @@ export default function ChatRoom({
 
   return (
     <div className={`flex flex-col h-full w-full ${t.bg} overflow-hidden`}>
-      {/* HEADER — flex-shrink-0 keeps it fixed at top */}
+      {/* ═══ HEADER — flex-shrink-0 keeps it fixed at top ═══ */}
       <div
         className={`flex-shrink-0 z-20 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
       >
@@ -426,7 +426,7 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* BADGE — flex-shrink-0 keeps it fixed below header */}
+      {/* ═══ BADGE — flex-shrink-0 keeps it fixed below header ═══ */}
       <div
         className={`flex-shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
       >
@@ -437,7 +437,7 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* MESSAGES — flex-1 min-h-0 is the KEY for scrollable area */}
+      {/* ═══ MESSAGES — flex-1 min-h-0 is THE KEY for scrollable area ═══ */}
       <div
         ref={scrollRef}
         className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
@@ -469,7 +469,7 @@ export default function ChatRoom({
         )}
       </div>
 
-      {/* INPUT — flex-shrink-0 keeps it fixed at bottom */}
+      {/* ═══ INPUT — flex-shrink-0 keeps it fixed at bottom ═══ */}
       <div className="flex-shrink-0">
         <ChatInput
           onSend={handleSend}

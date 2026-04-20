@@ -32,8 +32,19 @@ export default function Home() {
   } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Check if we're in a chat/message view (hide main header and bottom nav)
   const isInChatMode = view === "chat" || view === "match";
+
+  // ═══ Toggle body scroll lock when entering/leaving chat mode ═══
+  useEffect(() => {
+    if (isInChatMode) {
+      document.documentElement.classList.add("chat-mode");
+    } else {
+      document.documentElement.classList.remove("chat-mode");
+    }
+    return () => {
+      document.documentElement.classList.remove("chat-mode");
+    };
+  }, [isInChatMode]);
 
   const notify = useCallback(
     (msg: string, type: "info" | "warn" | "success" = "info") => {
@@ -133,14 +144,13 @@ export default function Home() {
       setShowLogin(true);
       setShowRegister(false);
     } else if (v === "register") {
-      setShowRegister(true);
+      setShowRegister(true); // ═══ FIXED: was setRegister(true)
       setShowLogin(false);
     } else {
       setView(v);
     }
   }, []);
 
-  // Dynamic tab highlight logic
   const isActive = (tabView: string) => {
     if (tabView === "home") return view === "welcome";
     if (tabView === "find") return view === "tags" || view === "searching";
@@ -150,11 +160,11 @@ export default function Home() {
   };
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // CHAT MODE — Fullscreen overlay with proper flex layout
+  // CHAT MODE — No website header, only chat header. Body scroll locked via .chat-mode
   // ═══════════════════════════════════════════════════════════════════════════════
   if (isInChatMode) {
     return (
-      <div className="fixed inset-0 z-50 bg-void flex flex-col h-full w-full overflow-hidden">
+      <div className="h-full w-full flex flex-col overflow-hidden bg-void">
         {view === "match" && (
           <div className="flex-1 h-full w-full overflow-hidden">
             <MatchFound
@@ -183,7 +193,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* Modals */}
         {showReport && (
           <ReportModal
             onReport={handleReport}
@@ -207,14 +216,12 @@ export default function Home() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // NON-CHAT MODE — Header + content + bottom nav
+  // NON-CHAT MODE — Website header + content + bottom nav (body scrollable)
   // ═══════════════════════════════════════════════════════════════════════════════
   return (
     <>
-      {/* MAIN APP HEADER */}
       <header className="fixed top-0 left-0 right-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Logo */}
           <div
             className="flex items-center gap-2 cursor-pointer"
             onClick={() => {
@@ -228,7 +235,6 @@ export default function Home() {
             </span>
           </div>
 
-          {/* Navigation Actions */}
           <div className="flex items-center gap-3">
             {view === "welcome" || view === "tags" ? (
               <>
@@ -257,8 +263,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
-      <main className="min-h-[100dvh] pt-16 pb-24 bg-[#0a0a0a] text-white">
+      <main className="min-h-[100dvh] pt-16 pb-24 bg-[#0a0a0a] text-white overflow-y-auto">
         {view === "welcome" && (
           <WelcomeHero
             onStart={() => setView("tags")}
@@ -286,10 +291,8 @@ export default function Home() {
         )}
       </main>
 
-      {/* BOTTOM NAVBAR */}
       <nav className="fixed bottom-0 left-0 right-0 w-full z-50 bg-[#0e0a14]/90 backdrop-blur-xl border-t border-white/[0.08] pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-center justify-between max-w-lg mx-auto w-full px-4 py-2">
-          {/* Home Button */}
           <button
             onClick={() => {
               wsService.disconnect();
@@ -324,7 +327,6 @@ export default function Home() {
             </span>
           </button>
 
-          {/* Find Button */}
           <button
             onClick={() => {
               if (view !== "searching") setView("tags");
@@ -357,7 +359,6 @@ export default function Home() {
             </span>
           </button>
 
-          {/* Chat Button */}
           <button
             disabled={!isActive("chat")}
             className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 py-2 rounded-xl transition-all duration-200 ${isActive("chat") ? "text-white" : "text-neutral-700 cursor-not-allowed"}`}
@@ -387,7 +388,6 @@ export default function Home() {
             </span>
           </button>
 
-          {/* Settings Button */}
           <button
             onClick={() => setShowSettings(true)}
             className={`relative flex flex-col items-center justify-center gap-1.5 flex-1 py-2 rounded-xl transition-all duration-200 ${isActive("settings") ? "text-white" : "text-neutral-500 hover:text-neutral-300"}`}
@@ -420,7 +420,6 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Modals */}
       <LoginModal
         isOpen={showLogin}
         onClose={() => setShowLogin(false)}
@@ -437,9 +436,7 @@ export default function Home() {
           setShowLogin(true);
         }}
       />
-
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-
       {toast && (
         <Toast
           message={toast.msg}

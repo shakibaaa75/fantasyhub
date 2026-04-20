@@ -316,7 +316,7 @@ export default function ChatRoom({
     <div
       className={`h-[100dvh] ${t.bg} transition-colors duration-500 flex flex-col overflow-hidden`}
     >
-      {/* FIXED HEADER - Not sticky, position fixed to viewport */}
+      {/* FIXED HEADER - Uses position fixed instead of sticky */}
       <div
         className={`fixed top-0 left-0 right-0 z-50 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
       >
@@ -439,11 +439,11 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* SCROLLABLE MESSAGES - Padding top accounts for fixed header + badge */}
+      {/* SCROLLABLE MESSAGES - Padding accounts for fixed header + badge */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
-        style={{ paddingTop: "calc(3rem + 2rem)" }} // header (3rem/12) + badge area (~2rem)
+        style={{ paddingTop: "5rem" }} // 3rem header + ~2rem badge area
       >
         <AnimatePresence>
           {messages.map((msg) => (

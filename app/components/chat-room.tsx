@@ -313,12 +313,16 @@ export default function ChatRoom({
   }, []);
 
   return (
+    /* fixed inset-0 completely removes this from document flow —
+       nothing in layout.tsx or page.tsx can interfere */
     <div
-      className={`h-[100dvh] ${t.bg} transition-colors duration-500 flex flex-col overflow-hidden`}
+      className={`fixed inset-0 ${t.bg} transition-colors duration-500 flex flex-col z-[9999]`}
+      style={{ overflow: "hidden" }}
     >
-      {/* Header - Fixed at top via flex-none, NO sticky needed */}
+      {/* ── HEADER ─────────────────────────────────── */}
       <div className={`shrink-0 ${t.headerBg} border-b ${t.headerBorder}`}>
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
+          {/* left: back + avatar + name */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             {onBack && (
               <button
@@ -350,7 +354,9 @@ export default function ChatRoom({
             </div>
           </div>
 
+          {/* right: actions */}
           <div className="flex items-center gap-0.5 sm:gap-1">
+            {/* theme picker */}
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setShowThemeMenu(!showThemeMenu)}
@@ -398,6 +404,7 @@ export default function ChatRoom({
               </AnimatePresence>
             </div>
 
+            {/* mute */}
             <button
               onClick={() => setIsMuted(!isMuted)}
               className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
@@ -409,6 +416,7 @@ export default function ChatRoom({
               )}
             </button>
 
+            {/* report */}
             <button
               onClick={onReport}
               className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} hover:text-red-400`}
@@ -416,6 +424,7 @@ export default function ChatRoom({
               <Flag className="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
 
+            {/* skip */}
             <button
               onClick={onSkip}
               className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
@@ -426,7 +435,7 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* Match badge - Fixed below header via flex-none, NO sticky needed */}
+      {/* ── MATCH BADGE ────────────────────────────── */}
       <div className="shrink-0 flex justify-center px-4 pt-2 pb-1">
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
@@ -435,7 +444,7 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* Messages - ONLY this section scrolls */}
+      {/* ── MESSAGES (only part that scrolls) ──────── */}
       <div
         ref={scrollRef}
         className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
@@ -474,7 +483,7 @@ export default function ChatRoom({
         </AnimatePresence>
       </div>
 
-      {/* Input - Fixed at bottom via flex-none */}
+      {/* ── INPUT (pinned to bottom) ───────────────── */}
       <div className="shrink-0">
         <ChatInput
           onSend={handleSend}

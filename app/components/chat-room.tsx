@@ -283,6 +283,7 @@ export default function ChatRoom({
     };
   }, [start, stop]);
 
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -313,10 +314,10 @@ export default function ChatRoom({
   }, []);
 
   return (
-    <div className={`flex flex-col h-screen w-full ${t.bg} overflow-hidden`}>
-      {/* HEADER - STICKY */}
+    <div className={`flex flex-col h-screen w-full ${t.bg}`}>
+      {/* Header - Stays at top */}
       <div
-        className={`sticky top-0 z-20 flex-shrink-0 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
+        className={`shrink-0 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md z-20`}
       >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -426,10 +427,8 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* BADGE */}
-      <div
-        className={`sticky top-[48px] sm:top-[56px] z-10 flex-shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
-      >
+      {/* Badge */}
+      <div className={`shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}>
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
         >
@@ -437,7 +436,7 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* MESSAGES - SCROLLABLE */}
+      {/* Messages - ONLY this scrolls */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
@@ -469,13 +468,15 @@ export default function ChatRoom({
         )}
       </div>
 
-      {/* INPUT */}
-      <ChatInput
-        onSend={handleSend}
-        onTyping={handleTyping}
-        timer={timer}
-        theme={theme}
-      />
+      {/* Input - Will be pushed up by keyboard naturally */}
+      <div className="shrink-0">
+        <ChatInput
+          onSend={handleSend}
+          onTyping={handleTyping}
+          timer={timer}
+          theme={theme}
+        />
+      </div>
     </div>
   );
 }

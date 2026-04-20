@@ -1,5 +1,6 @@
 import { Tag } from "@/lib/types";
 import { motion } from "framer-motion";
+import LucideIcon from "./lucide-icon";
 
 interface TagChipProps {
   tag: Tag;
@@ -19,8 +20,11 @@ export default function TagChip({ tag, selected, onClick }: TagChipProps) {
           : "bg-white/[0.02] border-white/[0.06] text-neutral-400 hover:bg-white/[0.04] hover:border-white/[0.1] hover:text-neutral-300"
       }`}
     >
-      <i
-        data-lucide={tag.icon}
+      <LucideIcon
+        name={tag.icon
+          .split("-")
+          .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+          .join("")}
         className={`w-3.5 h-3.5 ${selected ? "text-lavender opacity-80" : "opacity-50"}`}
       />
       <span className="font-medium">{tag.name}</span>

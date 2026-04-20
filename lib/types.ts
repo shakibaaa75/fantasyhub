@@ -6,6 +6,9 @@ export interface Tag {
 
 export type View = 'welcome' | 'tags' | 'searching' | 'match' | 'chat';
 
+// Auth views are handled as modals, not page navigation
+export type AuthView = 'login' | 'register' | null;
+
 export interface ChatMsg {
   id: string;
   text: string;

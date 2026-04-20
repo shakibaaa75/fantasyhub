@@ -72,3 +72,24 @@ body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #262626; border-radius: 2px; }
+
+/* Add to the existing keyframes */
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* Replace the dot animation with bounce */
+.animate-bounce {
+  animation: bounce 1.4s ease infinite;
+}
+
+/* Add to globals.css */
+phantom-ui[loading] * {
+  -webkit-text-fill-color: transparent !important;
+  pointer-events: none;
+  user-select: none;
+}
+phantom-ui[loading] img, phantom-ui[loading] svg {
+  opacity: 0 !important;
+}

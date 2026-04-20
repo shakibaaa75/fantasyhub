@@ -8,11 +8,12 @@ import BackHeader from "./back-header";
 
 interface TagSelectorProps {
   onContinue: (selected: string[]) => void;
+  onBack: () => void;
 }
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-export default function TagSelector({ onContinue }: TagSelectorProps) {
+export default function TagSelector({ onContinue, onBack }: TagSelectorProps) {
   const [selected, setSelected] = useState<string[]>([]);
   const [cat, setCat] = useState("all");
 
@@ -97,7 +98,7 @@ export default function TagSelector({ onContinue }: TagSelectorProps) {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col min-h-[100dvh]">
-        <BackHeader label="1 / 2" />
+        <BackHeader label="1 / 2" onBack={onBack} />
 
         <div className="flex-1 flex flex-col max-w-lg w-full mx-auto px-6 py-10">
           <motion.div

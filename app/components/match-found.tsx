@@ -1,10 +1,12 @@
 interface MatchFoundProps {
+  strangerName: string; // Add this
   sharedTags: string[];
   onChat: () => void;
   onSkip: () => void;
 }
 
 export default function MatchFound({
+  strangerName, // Add this
   sharedTags,
   onChat,
   onSkip,
@@ -21,7 +23,7 @@ export default function MatchFound({
         </h2>
         <p className="text-sm text-neutral-400 mb-6 anim-up anim-d1">
           You match with{" "}
-          <span className="text-white font-medium">anon#7291</span> on{" "}
+          <span className="text-white font-medium">{strangerName}</span> on{" "}
           <span className="text-lavender">{sharedTags.length}</span> interests
         </p>
 

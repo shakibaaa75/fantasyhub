@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import OnlineBadge from "./online-badge";
+import NavigationBar from "./navigation-bar";
+import { View } from "@/lib/types";
 
 interface WelcomeHeroProps {
   onStart: () => void;
+  onNavigate: (view: View | "login" | "register") => void;
 }
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -41,14 +43,12 @@ function Particle({ delay, data }: { delay: number; data: ParticleData }) {
 }
 
 function GhostChar({
-  icon,
   x,
   y,
   label,
   value,
   delay,
 }: {
-  icon: string;
   x: string;
   y: string;
   label: string;
@@ -76,7 +76,7 @@ function GhostChar({
 /* ========== MOBILE CHARACTER ========== */
 function MobileCharacter() {
   return (
-    <div className="flex justify-center  relative w-full">
+    <div className="flex justify-center relative w-full">
       <motion.div
         className="relative flex items-end justify-center"
         initial={{ opacity: 0, y: 20 }}
@@ -217,30 +217,9 @@ function DesktopCharacter() {
         />
       </motion.div>
 
-      <GhostChar
-        icon="level"
-        x="10%"
-        y="10%"
-        label="LEVEL"
-        value="--"
-        delay={1.2}
-      />
-      <GhostChar
-        icon="status"
-        x="70%"
-        y="18%"
-        label="STATUS"
-        value="Waiting"
-        delay={1.4}
-      />
-      <GhostChar
-        icon="match"
-        x="5%"
-        y="58%"
-        label="MATCHES"
-        value="∞"
-        delay={1.6}
-      />
+      <GhostChar x="10%" y="10%" label="LEVEL" value="--" delay={1.2} />
+      <GhostChar x="70%" y="18%" label="STATUS" value="Waiting" delay={1.4} />
+      <GhostChar x="5%" y="58%" label="MATCHES" value="∞" delay={1.6} />
 
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
@@ -285,11 +264,10 @@ function DesktopCharacter() {
 }
 
 /* ========== MAIN ========== */
-export default function WelcomeHero({ onStart }: WelcomeHeroProps) {
+export default function WelcomeHero({ onStart, onNavigate }: WelcomeHeroProps) {
   const [particles, setParticles] = useState<ParticleData[]>([]);
 
   useEffect(() => {
-    // Generate random values only on client to avoid hydration mismatch
     setParticles(
       Array.from({ length: 15 }, () => ({
         x: `${8 + Math.random() * 84}%`,
@@ -302,13 +280,13 @@ export default function WelcomeHero({ onStart }: WelcomeHeroProps) {
   }, []);
 
   return (
-    <div className="relative flex-1 overflow-hidden">
+    <div className="relative flex flex-col min-h-[100dvh] overflow-hidden">
       {/* BG */}
       <div className="absolute inset-0 bg-gradient-to-br from-void via-[#0a0515] to-[#08020e]" />
 
       {/* Ambient lights */}
       <motion.div
-        className="absolute w-[600px] h-[600px] rounded-full"
+        className="absolute w-[600px] h-[600px] rounded-full pointer-events-none"
         style={{
           left: "15%",
           top: "5%",
@@ -319,7 +297,7 @@ export default function WelcomeHero({ onStart }: WelcomeHeroProps) {
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="absolute w-[400px] h-[400px] rounded-full"
+        className="absolute w-[400px] h-[400px] rounded-full pointer-events-none"
         style={{
           right: "5%",
           bottom: "5%",
@@ -335,23 +313,23 @@ export default function WelcomeHero({ onStart }: WelcomeHeroProps) {
         }}
       />
 
-      {/* Particles - client-side only */}
+      {/* Particles */}
       {particles.map((p, i) => (
         <Particle key={i} delay={i * 0.5} data={p} />
       ))}
 
       {/* Scan line */}
       <motion.div
-        className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-lavender/15 to-transparent"
+        className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-lavender/15 to-transparent pointer-events-none"
         animate={{ top: ["0%", "100%"] }}
         transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
       />
 
-      {/* Desktop character — absolute right side */}
+      {/* Desktop character */}
       <DesktopCharacter />
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col h-full">
+      <div className="relative z-10 flex flex-col h-full flex-1">
         {/* Nav */}
         <motion.div
           className="flex items-center justify-between px-6 md:px-12 py-6"
@@ -361,9 +339,10 @@ export default function WelcomeHero({ onStart }: WelcomeHeroProps) {
         >
           <div className="flex items-center gap-3">
             <motion.div
-              className="w-9 h-9 rounded-xl bg-gradient-to-br from-plum to-blush flex items-center justify-center"
+              className="w-9 h-9 rounded-xl bg-gradient-to-br from-plum to-blush flex items-center justify-center cursor-pointer"
               whileHover={{ scale: 1.05, rotate: 5 }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => onNavigate("welcome")}
             >
               <svg
                 width="16"
@@ -382,8 +361,25 @@ export default function WelcomeHero({ onStart }: WelcomeHeroProps) {
               vibematch
             </span>
           </div>
-          <div className="flex items-center gap-4">
-            <OnlineBadge />
+
+          {/* Auth buttons */}
+          <div className="flex items-center gap-3">
+            <motion.button
+              onClick={() => onNavigate("login")}
+              className="px-4 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white/70 font-display text-xs tracking-wide hover:bg-white/[0.08] hover:border-white/[0.14] hover:text-white/90 transition-all duration-200"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              Log In
+            </motion.button>
+            <motion.button
+              onClick={() => onNavigate("register")}
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-plum to-blush text-white font-display text-xs tracking-wide font-semibold hover:shadow-[0_0_20px_rgba(94,61,140,0.35)] transition-shadow duration-300"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              Create Account
+            </motion.button>
             <motion.div
               className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.025] border border-white/[0.05]"
               whileHover={{ borderColor: "rgba(171,157,217,0.15)" }}
@@ -451,12 +447,12 @@ export default function WelcomeHero({ onStart }: WelcomeHeroProps) {
                 cringe.
               </motion.p>
 
-              {/* Mobile character - appears above button on mobile */}
-              <div className="xl:hidden ">
+              {/* Mobile character */}
+              <div className="xl:hidden">
                 <MobileCharacter />
               </div>
 
-              {/* CTA - Full width on mobile */}
+              {/* CTA */}
               <motion.div
                 className="flex flex-col sm:flex-row items-center gap-4 mb-10 md:mb-14 justify-center xl:justify-start"
                 initial={{ opacity: 0, y: 30 }}
@@ -531,114 +527,12 @@ export default function WelcomeHero({ onStart }: WelcomeHeroProps) {
           </div>
         </div>
 
-        {/* Bottom nav */}
-        <motion.div
-          className="mx-3 md:mx-6 mb-3 md:mb-4 mt-auto"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 1.3, ease }}
-        >
-          <div className="relative flex items-center justify-around px-2 py-2.5 rounded-xl bg-[#0e0a14] border border-white/[0.08]">
-            {[
-              {
-                label: "Home",
-                active: true,
-                icon: (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                ),
-              },
-              {
-                label: "Find",
-                active: false,
-                icon: (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="11" cy="11" r="8" />
-                    <path d="m21 21-4.3-4.3" />
-                  </svg>
-                ),
-              },
-              {
-                label: "Chat",
-                active: false,
-                icon: (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  </svg>
-                ),
-              },
-              {
-                label: "Settings",
-                active: false,
-                icon: (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                ),
-              },
-            ].map((item) => (
-              <motion.button
-                key={item.label}
-                className={`relative flex flex-col items-center gap-1.5 px-5 py-2 rounded-lg transition-all duration-200 ${item.active ? "text-white" : "text-neutral-500 hover:text-neutral-300"}`}
-                whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
-                whileTap={{ scale: 0.93 }}
-              >
-                {item.active && (
-                  <motion.div
-                    className="absolute inset-0 rounded-lg bg-plum/20 border border-plum/30"
-                    layoutId="activeNav"
-                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                  />
-                )}
-                <span className="relative z-10">{item.icon}</span>
-                <span
-                  className={`relative z-10 text-[10px] font-body tracking-[0.08em] ${item.active ? "text-lavender" : ""}`}
-                >
-                  {item.label}
-                </span>
-              </motion.button>
-            ))}
-          </div>
-        </motion.div>
+        {/* Navigation Bar */}
+        <NavigationBar
+          currentView="welcome"
+          onNavigate={onNavigate}
+          hasActiveChat={false}
+        />
       </div>
 
       {/* Vignette */}

@@ -1,21 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 
 interface BackHeaderProps {
   label?: string;
+  onBack?: () => void;
 }
 
-export default function BackHeader({ label }: BackHeaderProps) {
-  const router = useRouter();
-
+export default function BackHeader({ label, onBack }: BackHeaderProps) {
   return (
-    <div className="flex items-center justify-between px-6 h-14 border-b border-border">
+    <div className="flex items-center justify-between px-6 h-14 border-b border-white/10">
       <button
-        onClick={() => router.back()}
+        onClick={onBack}
         className="flex items-center gap-2 text-neutral-500 hover:text-white transition-colors text-sm"
       >
-        <i data-lucide="chevron-left" className="w-4 h-4" />
+        <ChevronLeft className="w-4 h-4" />
         Back
       </button>
       {label && (

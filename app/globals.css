@@ -67,20 +67,10 @@
   box-sizing: border-box;
 }
 
-html, body {
-  height: 100%;
-}
-
+/* REMOVED: html, body height constraints - let them be natural */
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* iOS Safari: use dvh when available */
-@supports (height: 100dvh) {
-  html, body {
-    height: 100dvh;
-  }
 }
 
 ::-webkit-scrollbar { width: 4px; }
@@ -105,12 +95,6 @@ input, textarea {
   font-size: 16px !important;
 }
 
-@supports (height: 100dvh) {
-  .h-dvh-fix {
-    height: 100dvh;
-  }
-}
-
 .fixed {
   pointer-events: auto;
 }
@@ -132,29 +116,4 @@ input, textarea {
 
 input, textarea, button {
   touch-action: manipulation;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════════ */
-/* CHAT MODE — Lock body scroll when .chat-mode is active (Instagram style)      */
-/* ═══════════════════════════════════════════════════════════════════════════════ */
-html.chat-mode,
-html.chat-mode body {
-  overflow: hidden;
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  overscroll-behavior: none;
-}
-
-/* Mobile keyboard handling */
-@media (max-width: 768px) {
-  .chat-container {
-    height: 100dvh;
-    overflow: hidden;
-  }
-}
-
-/* Smooth scrolling for messages */
-.chat-messages-scroll {
-  scroll-behavior: smooth;
 }

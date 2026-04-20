@@ -223,6 +223,7 @@ export default function ChatRoom({
   const [theme, setTheme] = useState<ChatTheme>("midnight");
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null); // ← ADD THIS
   const { formatted: timer, start, stop } = useChatTimer();
   const handlersRef = useRef<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -283,9 +284,10 @@ export default function ChatRoom({
     };
   }, [start, stop]);
 
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isStrangerTyping]);
 
@@ -312,166 +314,139 @@ export default function ChatRoom({
     wsService.send({ type: "typing", data: { is_typing: isTyping } });
   }, []);
 
+  // EXACT SAME STRUCTURE AS YOUR WORKING MessagesPage.tsx
   return (
-    // EXACT SAME PATTERN AS YOUR WORKING MessagesPage.tsx
-    <div className={`flex flex-col h-screen w-full ${t.bg}`}>
-      {/* HEADER — sticky top-0 (same as your working MessagesPage) */}
-      <div
-        className={`sticky top-0 z-20 flex-shrink-0 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
-      >
-        <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className={`sm:hidden w-9 h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300 shrink-0`}
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            )}
-
-            <div className="relative shrink-0">
-              <div
-                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ${t.avatarBg} flex items-center justify-center`}
-              >
-                <User className="w-4 h-4 text-neutral-500" />
-              </div>
-              <div
-                className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 ring-2 ${t.avatarRing}`}
-              />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className={`text-sm font-semibold ${t.text} truncate`}>
-                {strangerName}
-              </div>
-              <div className="text-[10px] sm:text-xs text-green-500">
-                online
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-0.5 sm:gap-1">
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setShowThemeMenu(!showThemeMenu)}
-                className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
-              >
-                <Sparkles className="w-5 h-5 sm:w-4 sm:h-4" />
-              </button>
-              <AnimatePresence>
-                {showThemeMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                    className={`absolute right-0 top-12 rounded-xl border p-2 shadow-2xl z-50 min-w-[160px] ${t.menuBg} ${t.menuBorder}`}
-                  >
-                    {(Object.keys(themeConfig) as ChatTheme[]).map((th) => (
-                      <button
-                        key={th}
-                        onClick={() => {
-                          setTheme(th);
-                          setShowThemeMenu(false);
-                        }}
-                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium capitalize ${
-                          theme === th
-                            ? `${t.menuActiveBg} ${t.menuActiveText}`
-                            : `${t.menuText} ${t.menuItemHover}`
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-3 h-3 rounded-full shrink-0"
-                            style={{
-                              backgroundColor: themeConfig[th].accentColor,
-                            }}
-                          />
-                          <span className="truncate">
-                            {themeConfig[th].name}
-                          </span>
-                          {theme === th && <span className="ml-auto">✓</span>}
-                        </div>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
+    <div className="h-screen bg-black flex flex-col">
+      {/* Header - sticky top-0 */}
+      <div className="sticky top-0 z-10 bg-[#1c1c1e]/95 backdrop-blur-md border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3 flex-1">
+          {onBack && (
             <button
-              onClick={() => setIsMuted(!isMuted)}
-              className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
+              onClick={onBack}
+              className="md:hidden text-[#007aff] text-lg font-medium"
             >
-              {isMuted ? (
-                <VolumeX className="w-5 h-5 sm:w-4 sm:h-4" />
-              ) : (
-                <Volume2 className="w-5 h-5 sm:w-4 sm:h-4" />
+              ← Back
+            </button>
+          )}
+          <div className="w-9 h-9 rounded-full bg-[#007aff] flex items-center justify-center text-white text-sm font-medium">
+            {strangerName[0].toUpperCase()}
+          </div>
+          <div className="flex flex-col">
+            <span className="font-semibold text-white text-base leading-tight">
+              {strangerName}
+            </span>
+            <span className="text-xs text-green-500">online</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setShowThemeMenu(!showThemeMenu)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white"
+            >
+              <Sparkles className="w-5 h-5" />
+            </button>
+            <AnimatePresence>
+              {showThemeMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                  className={`absolute right-0 top-10 rounded-xl border p-2 shadow-2xl z-50 min-w-[160px] ${t.menuBg} ${t.menuBorder}`}
+                >
+                  {(Object.keys(themeConfig) as ChatTheme[]).map((th) => (
+                    <button
+                      key={th}
+                      onClick={() => {
+                        setTheme(th);
+                        setShowThemeMenu(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium capitalize ${
+                        theme === th
+                          ? `${t.menuActiveBg} ${t.menuActiveText}`
+                          : `${t.menuText} ${t.menuItemHover}`
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full shrink-0"
+                          style={{
+                            backgroundColor: themeConfig[th].accentColor,
+                          }}
+                        />
+                        <span className="truncate">{themeConfig[th].name}</span>
+                        {theme === th && <span className="ml-auto">✓</span>}
+                      </div>
+                    </button>
+                  ))}
+                </motion.div>
               )}
-            </button>
-
-            <button
-              onClick={onReport}
-              className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} hover:text-red-400`}
-            >
-              <Flag className="w-5 h-5 sm:w-4 sm:h-4" />
-            </button>
-
-            <button
-              onClick={onSkip}
-              className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
-            >
-              <ArrowRight className="w-5 h-5 sm:w-4 sm:h-4" />
-            </button>
+            </AnimatePresence>
           </div>
+
+          <button
+            onClick={() => setIsMuted(!isMuted)}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white"
+          >
+            {isMuted ? (
+              <VolumeX className="w-5 h-5" />
+            ) : (
+              <Volume2 className="w-5 h-5" />
+            )}
+          </button>
+
+          <button
+            onClick={onReport}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-red-400"
+          >
+            <Flag className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={onSkip}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white"
+          >
+            <ArrowRight className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
-      {/* BADGE — sticky below header (same pattern) */}
-      <div
-        className={`sticky top-[48px] sm:top-[56px] z-10 flex-shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
-      >
-        <div
-          className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
-        >
+      {/* Badge - sticky below header */}
+      <div className="sticky top-[57px] z-10 flex justify-center px-4 pt-2 pb-1 bg-black">
+        <div className="text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border border-gray-700 bg-[#1c1c1e] text-gray-400 truncate max-w-full">
           matched on {sharedTags.join(" • ")}
         </div>
       </div>
 
-      {/* MESSAGES — flex-1 overflow-y-auto (SAME AS YOUR WORKING MessagesPage) */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
-      >
+      {/* Messages - flex-1 overflow-y-auto */}
+      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
         {messages.map((msg) => (
           <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
         ))}
         {isStrangerTyping && (
           <div className="flex justify-start w-full mb-1">
-            <div
-              className={`${t.typingBg} rounded-[1.15rem] rounded-tl-md px-3 sm:px-4 py-2.5 sm:py-3`}
-            >
-              <div className="flex gap-1">
-                <div
-                  className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
-                  style={{ animationDelay: "0ms" }}
-                />
-                <div
-                  className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
-                  style={{ animationDelay: "150ms" }}
-                />
-                <div
-                  className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
-                  style={{ animationDelay: "300ms" }}
-                />
-              </div>
+            <div className="bg-[#2c2c2e] rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1">
+              <span
+                className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                style={{ animationDelay: "0ms" }}
+              />
+              <span
+                className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                style={{ animationDelay: "0.2s" }}
+              />
+              <span
+                className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                style={{ animationDelay: "0.4s" }}
+              />
             </div>
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* INPUT — flex-shrink-0 (SAME AS YOUR WORKING MessagesPage) */}
-      <div className="flex-shrink-0">
+      {/* Input - flex-shrink-0 */}
+      <div className="flex-shrink-0 bg-[#1c1c1e] border-t border-gray-800 px-3 py-2 pb-safe">
         <ChatInput
           onSend={handleSend}
           onTyping={handleTyping}

@@ -226,35 +226,8 @@ export default function ChatRoom({
   const { formatted: timer, start, stop } = useChatTimer();
   const handlersRef = useRef<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const t = themeConfig[theme];
-
-  // Handle keyboard resize for mobile - adjusts height when keyboard opens
-  useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current && window.visualViewport) {
-        const vv = window.visualViewport;
-        // Set height to visual viewport height (accounts for keyboard)
-        containerRef.current.style.height = `${vv.height}px`;
-        // Also handle offset if page is scrolled
-        containerRef.current.style.top = `${vv.offsetTop}px`;
-      }
-    };
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", handleResize);
-      window.visualViewport.addEventListener("scroll", handleResize);
-      handleResize(); // Set initial height
-    }
-
-    return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener("resize", handleResize);
-        window.visualViewport.removeEventListener("scroll", handleResize);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -340,20 +313,10 @@ export default function ChatRoom({
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      className={`fixed inset-0 z-50 ${t.bg} transition-colors duration-500 flex flex-col`}
-      style={{
-        height: "100dvh",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-      }}
-    >
-      {/* HEADER - shrink-0 means never shrinks, stays at top */}
+    <div className={`h-[100dvh] ${t.bg} flex flex-col overflow-hidden`}>
+      {/* HEADER - shrink-0: never shrinks, stays at top */}
       <div
-        className={`shrink-0 w-full ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
+        className={`shrink-0 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
       >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -463,10 +426,8 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* BADGE - shrink-0 means never shrinks */}
-      <div
-        className={`shrink-0 w-full flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
-      >
+      {/* BADGE - shrink-0: never shrinks */}
+      <div className={`shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}>
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
         >
@@ -513,8 +474,8 @@ export default function ChatRoom({
         </AnimatePresence>
       </div>
 
-      {/* INPUT - shrink-0 means never shrinks, stays at bottom */}
-      <div className="shrink-0 w-full">
+      {/* INPUT - shrink-0: stays at bottom */}
+      <div className="shrink-0">
         <ChatInput
           onSend={handleSend}
           onTyping={handleTyping}

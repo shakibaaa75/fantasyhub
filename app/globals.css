@@ -112,3 +112,16 @@ html, body {
     height: 100dvh;
   }
 }
+
+/* Ensure fixed elements don't block pointer events on children */
+.fixed {
+  pointer-events: auto;
+}
+
+/* Prevent iOS Safari from breaking scrolling in fixed containers */
+@supports (-webkit-touch-callout: none) {
+  .fixed {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+}

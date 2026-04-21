@@ -3,7 +3,7 @@ export interface WebSocketMessage {
   data: any;
   from_id?: string;
   to_id?: string;
-  timestamp: string; // Make sure this is string, not optional
+  timestamp: string;
 }
 
 class WebSocketService {
@@ -11,8 +11,13 @@ class WebSocketService {
   private listeners: Map<string, Function[]> = new Map();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+  private currentTags: string[] = [];
+  private currentMode: 'chat' | 'video' = 'chat';
 
-  connect(tags: string[]): Promise<void> {
+  connect(tags: string[], mode: 'chat' | 'video' = 'chat'): Promise<void> {
+    this.currentTags = tags;
+    this.currentMode = mode;
+
     return new Promise((resolve, reject) => {
       const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080/ws";
       this.ws = new WebSocket(wsUrl);
@@ -21,10 +26,10 @@ class WebSocketService {
         console.log("WebSocket connected");
         this.reconnectAttempts = 0;
         
-        // Send initial find_match message with tags
+        // Send initial find_match message with tags and mode
         this.send({
           type: "find_match",
-          data: { tags },
+          data: { tags, mode },
           timestamp: new Date().toISOString(),
         });
         
@@ -47,17 +52,17 @@ class WebSocketService {
 
       this.ws.onclose = () => {
         console.log("WebSocket disconnected");
-        this.attemptReconnect(tags);
+        this.attemptReconnect();
       };
     });
   }
 
-  private attemptReconnect(tags: string[]) {
+  private attemptReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       setTimeout(() => {
         console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-        this.connect(tags);
+        this.connect(this.currentTags, this.currentMode);
       }, 2000 * this.reconnectAttempts);
     }
   }
@@ -81,6 +86,35 @@ class WebSocketService {
     }
   }
 
+  // WebRTC signaling helpers
+  sendOffer(offer: RTCSessionDescriptionInit) {
+    this.send({ type: 'offer', data: offer });
+  }
+
+  sendAnswer(answer: RTCSessionDescriptionInit) {
+    this.send({ type: 'answer', data: answer });
+  }
+
+  sendIceCandidate(candidate: RTCIceCandidateInit) {
+    this.send({ type: 'ice_candidate', data: candidate });
+  }
+
+  sendVideoReady() {
+    this.send({ type: 'video_ready', data: {} });
+  }
+
+  sendVideoToggle(enabled: boolean) {
+    this.send({ type: 'video_toggle', data: { enabled } });
+  }
+
+  sendAudioToggle(enabled: boolean) {
+    this.send({ type: 'audio_toggle', data: { enabled } });
+  }
+
+  sendEndCall() {
+    this.send({ type: 'end_call', data: {} });
+  }
+
   on(type: string, callback: Function) {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, []);
@@ -102,6 +136,7 @@ class WebSocketService {
       this.ws = null;
     }
     this.listeners.clear();
+    this.currentTags = [];
   }
 }
 

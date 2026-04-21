@@ -9,6 +9,18 @@ import {
   type ReactNode,
 } from "react";
 
+export interface UserSettings {
+  soundEnabled: boolean;
+  soundVolume: number;
+  notificationsEnabled: boolean;
+  anonymousMode: boolean;
+  darkMode: boolean;
+  showTypingIndicator: boolean;
+  autoRequeue: boolean;
+  minSimilarity: number;
+  defaultCallMode: "chat" | "video"; // NEW
+}
+
 // ==================== TYPES ====================
 
 export interface UserSettings {
@@ -50,6 +62,17 @@ interface SettingsContextValue {
 }
 
 // ==================== DEFAULTS ====================
+export interface UserSettings {
+  soundEnabled: boolean;
+  soundVolume: number;
+  notificationsEnabled: boolean;
+  anonymousMode: boolean;
+  darkMode: boolean;
+  showTypingIndicator: boolean;
+  autoRequeue: boolean;
+  minSimilarity: number;
+  defaultCallMode: "chat" | "video"; // NEW
+}
 
 const DEFAULT_SETTINGS: UserSettings = {
   soundEnabled: true,
@@ -60,6 +83,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   showTypingIndicator: true,
   autoRequeue: true,
   minSimilarity: 0.25,
+  defaultCallMode: "chat", // NEW
 };
 
 const STORAGE_KEY = "vibematch_settings";

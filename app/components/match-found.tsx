@@ -1,58 +1,151 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { MessageCircle, Video, SkipForward } from "lucide-react";
+
 interface MatchFoundProps {
-  strangerName: string; // Add this
+  strangerName: string;
   sharedTags: string[];
+  matchMode: "chat" | "video";
   onChat: () => void;
+  onVideo: () => void;
   onSkip: () => void;
 }
 
 export default function MatchFound({
-  strangerName, // Add this
+  strangerName,
   sharedTags,
+  matchMode,
   onChat,
+  onVideo,
   onSkip,
 }: MatchFoundProps) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6">
-      <div className="text-center max-w-sm">
-        <div className="w-16 h-16 rounded-2xl bg-s3 border-border flex items-center justify-center mx-auto mb-8 anim-up">
-          <i data-lucide="user-check" className="w-7 h-7 text-lavender" />
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0a1a]">
+      {/* Background effects */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div
+          className="absolute w-[500px] h-[500px] rounded-full"
+          style={{
+            left: "50%",
+            top: "40%",
+            transform: "translate(-50%, -50%)",
+            background:
+              "radial-gradient(circle, rgba(94,61,140,0.15) 0%, transparent 70%)",
+          }}
+        />
+      </div>
 
-        <h2 className="text-xl font-bold mb-2 anim-up anim-d1">
-          Someone&apos;s here.
-        </h2>
-        <p className="text-sm text-neutral-400 mb-6 anim-up anim-d1">
-          You match with{" "}
-          <span className="text-white font-medium">{strangerName}</span> on{" "}
-          <span className="text-lavender">{sharedTags.length}</span> interests
-        </p>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        className="relative z-10 text-center max-w-sm mx-auto px-6"
+      >
+        {/* Avatar */}
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.2, type: "spring" }}
+          className="w-20 h-20 rounded-2xl bg-gradient-to-br from-plum/30 to-blush/30 border border-lavender/20 flex items-center justify-center mx-auto mb-6"
+        >
+          <span className="text-3xl">👻</span>
+        </motion.div>
 
-        <div className="flex flex-wrap gap-1.5 justify-center mb-10 anim-up anim-d2">
-          {sharedTags.map((t) => (
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="text-2xl font-bold text-white mb-2"
+        >
+          Match found!
+        </motion.h2>
+
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="text-sm text-neutral-400 mb-2"
+        >
+          You and <span className="text-white font-medium">{strangerName}</span>{" "}
+          share
+        </motion.p>
+
+        {/* Shared tags */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="flex flex-wrap gap-1.5 justify-center mb-8"
+        >
+          {sharedTags.map((tag) => (
             <span
-              key={t}
-              className="text-[11px] text-lavender bg-purple/10 border border-purple/20 px-2.5 py-1 rounded-md"
+              key={tag}
+              className="text-xs text-lavender bg-lavender/10 border border-lavender/20 px-3 py-1.5 rounded-full"
             >
-              {t}
+              {tag}
             </span>
           ))}
-        </div>
+        </motion.div>
 
-        <div className="flex gap-3 anim-up anim-d3">
-          <button
-            onClick={onChat}
-            className="h-11 px-8 rounded-xl bg-white text-void font-semibold text-sm hover:bg-neutral-200 transition-colors"
+        {/* Mode indicator */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.55 }}
+          className="mb-8"
+        >
+          <span
+            className={`text-xs px-3 py-1 rounded-full ${
+              matchMode === "video"
+                ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                : "bg-green-500/10 text-green-400 border border-green-500/20"
+            }`}
           >
-            Chat
-          </button>
-          <button
+            {matchMode === "video" ? "🔴 Video Call" : "💬 Text Chat"}
+          </span>
+        </motion.div>
+
+        {/* Action buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="flex flex-col gap-3"
+        >
+          {matchMode === "video" ? (
+            <motion.button
+              onClick={onVideo}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full h-14 rounded-xl bg-gradient-to-r from-plum to-blush text-white font-semibold flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(94,61,140,0.4)] transition-shadow"
+            >
+              <Video className="w-5 h-5" />
+              Start Video Call
+            </motion.button>
+          ) : (
+            <motion.button
+              onClick={onChat}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full h-14 rounded-xl bg-gradient-to-r from-plum to-blush text-white font-semibold flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(94,61,140,0.4)] transition-shadow"
+            >
+              <MessageCircle className="w-5 h-5" />
+              Start Chatting
+            </motion.button>
+          )}
+
+          <motion.button
             onClick={onSkip}
-            className="h-11 px-6 rounded-xl bg-s3 border-border text-neutral-400 text-sm font-medium hover:text-white hover:border-neutral-700 transition-all"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full h-12 rounded-xl bg-white/5 border border-white/10 text-neutral-400 font-medium flex items-center justify-center gap-2 hover:bg-white/10 hover:text-white transition-all"
           >
-            Skip
-          </button>
-        </div>
-      </div>
+            <SkipForward className="w-4 h-4" />
+            Find Someone Else
+          </motion.button>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

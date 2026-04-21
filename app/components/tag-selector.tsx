@@ -3,11 +3,12 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { tags, categories } from "@/lib/tags-data";
+import { MessageCircle, Video } from "lucide-react";
 import TagChip from "./tag-chip";
 import BackHeader from "./back-header";
 
 interface TagSelectorProps {
-  onContinue: (selected: string[]) => void;
+  onContinue: (selected: string[], mode: "chat" | "video") => void;
   onBack: () => void;
 }
 
@@ -35,6 +36,7 @@ function StyleTag() {
 export default function TagSelector({ onContinue, onBack }: TagSelectorProps) {
   const [selected, setSelected] = useState<string[]>([]);
   const [cat, setCat] = useState("all");
+  const [mode, setMode] = useState<"chat" | "video">("chat");
   const rootRef = useRef<HTMLDivElement>(null);
 
   const toggle = useCallback((name: string) => {
@@ -205,15 +207,46 @@ export default function TagSelector({ onContinue, onBack }: TagSelectorProps) {
             ))}
           </motion.div>
 
+          {/* Mode Selector */}
           <motion.div
-            className="pt-8"
+            className="flex items-center justify-center gap-2 mb-6 pt-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.35 }}
+          >
+            <button
+              onClick={() => setMode("chat")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                mode === "chat"
+                  ? "bg-white/[0.08] text-white border border-white/[0.1]"
+                  : "text-neutral-500 hover:text-neutral-300"
+              }`}
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              Text Chat
+            </button>
+            <button
+              onClick={() => setMode("video")}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                mode === "video"
+                  ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                  : "text-neutral-500 hover:text-neutral-300"
+              }`}
+            >
+              <Video className="w-3.5 h-3.5" />
+              Video Call
+            </button>
+          </motion.div>
+
+          <motion.div
+            className="pt-2"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4, ease }}
           >
             <motion.button
               disabled={!canContinue}
-              onClick={() => canContinue && onContinue(selected)}
+              onClick={() => canContinue && onContinue(selected, mode)}
               className={`w-full h-[52px] rounded-xl font-display font-semibold text-sm tracking-wide transition-all duration-200 overflow-hidden relative ${
                 canContinue
                   ? "text-white cursor-pointer"
@@ -231,8 +264,14 @@ export default function TagSelector({ onContinue, onBack }: TagSelectorProps) {
                 whileHover={canContinue ? { x: "100%" } : {}}
                 transition={{ duration: 0.6 }}
               />
-              <span className="relative z-10">
-                {canContinue ? "Find someone" : "Pick at least 3 to continue"}
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                {mode === "video" && <Video className="w-4 h-4" />}
+                {mode === "chat" && <MessageCircle className="w-4 h-4" />}
+                {canContinue
+                  ? mode === "video"
+                    ? "Find Video Match"
+                    : "Find Chat Match"
+                  : "Pick at least 3 to continue"}
               </span>
             </motion.button>
           </motion.div>

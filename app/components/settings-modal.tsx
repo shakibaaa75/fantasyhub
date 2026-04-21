@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Video, Camera } from "lucide-react";
+
 import {
   X,
   Volume2,

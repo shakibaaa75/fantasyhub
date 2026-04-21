@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { View } from "@/lib/types";
+import { View, MatchData } from "@/lib/types";
 import WelcomeHero from "@/app/components/welcome-hero";
 import TagSelector from "@/app/components/tag-selector";
 import Searching from "@/app/components/searching";
 import MatchFound from "@/app/components/match-found";
 import ChatRoom from "@/app/components/chat-room";
+import VideoRoom from "@/app/components/video-room";
 import ReportModal from "@/app/components/report-modal";
 import SkipModal from "@/app/components/skip-modal";
 import Toast from "@/app/components/toast";
@@ -21,6 +22,8 @@ export default function Home() {
   const [sharedTags, setSharedTags] = useState<string[]>([]);
   const [strangerName, setStrangerName] = useState<string>("");
   const [matchId, setMatchId] = useState<string>("");
+  const [matchData, setMatchData] = useState<MatchData | null>(null);
+  const [callMode, setCallMode] = useState<"chat" | "video">("chat");
   const [showReport, setShowReport] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
@@ -32,9 +35,9 @@ export default function Home() {
   } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  const isInChatMode = view === "chat" || view === "match";
+  const isInChatMode = view === "chat" || view === "match" || view === "video";
 
-  // Lock body scroll when in chat mode — ChatRoom handles its own viewport
+  // Lock body scroll when in chat/video mode
   useEffect(() => {
     if (isInChatMode) {
       document.documentElement.classList.add("chat-mode");
@@ -56,11 +59,13 @@ export default function Home() {
   const handlersRef = useRef<any>({});
 
   useEffect(() => {
-    const handleMatchFound = (data: any) => {
+    const handleMatchFound = (data: MatchData) => {
       console.log("Match found!", data);
+      setMatchData(data);
       setSharedTags(data.shared_tags || []);
-      setMatchId(data.match_id || data.id || "match-1");
+      setMatchId(data.match_id || "match-1");
       setStrangerName(`anon#${Math.floor(Math.random() * 9000 + 1000)}`);
+      setCallMode(data.mode || "chat");
       setView("match");
       setIsSearching(false);
     };
@@ -76,17 +81,25 @@ export default function Home() {
 
     const handleSkipped = () => console.log("Skipped, searching for new match");
 
+    const handleDisconnected = () => {
+      notify("Stranger disconnected", "warn");
+      setView("searching");
+      setIsSearching(true);
+    };
+
     handlersRef.current = {
       match_found: handleMatchFound,
       searching: handleSearching,
       error: handleError,
       skipped: handleSkipped,
+      disconnected: handleDisconnected,
     };
 
     wsService.on("match_found", handleMatchFound);
     wsService.on("searching", handleSearching);
     wsService.on("error", handleError);
     wsService.on("skipped", handleSkipped);
+    wsService.on("disconnected", handleDisconnected);
 
     return () => {
       if (handlersRef.current) {
@@ -94,17 +107,18 @@ export default function Home() {
         wsService.off("searching", handlersRef.current.searching);
         wsService.off("error", handlersRef.current.error);
         wsService.off("skipped", handlersRef.current.skipped);
+        wsService.off("disconnected", handlersRef.current.disconnected);
       }
     };
   }, [notify]);
 
   const handleTagsSelected = useCallback(
-    async (tags: string[]) => {
+    async (tags: string[], mode: "chat" | "video" = "chat") => {
       setSelectedTags(tags);
       setView("searching");
       setIsSearching(true);
       try {
-        await wsService.connect(tags);
+        await wsService.connect(tags, mode);
       } catch (error) {
         console.error("Failed to connect:", error);
         notify("Failed to connect to server", "warn");
@@ -154,13 +168,14 @@ export default function Home() {
   const isActive = (tabView: string) => {
     if (tabView === "home") return view === "welcome";
     if (tabView === "find") return view === "tags" || view === "searching";
-    if (tabView === "chat") return view === "match" || view === "chat";
+    if (tabView === "chat")
+      return view === "match" || view === "chat" || view === "video";
     if (tabView === "settings") return showSettings;
     return false;
   };
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // CHAT MODE — ChatRoom itself is fixed inset-0, modals layer on top
+  // CHAT / VIDEO MODE — Fullscreen overlays
   // ═══════════════════════════════════════════════════════════════════════════════
   if (isInChatMode) {
     return (
@@ -169,7 +184,9 @@ export default function Home() {
           <MatchFound
             strangerName={strangerName}
             sharedTags={sharedTags}
+            matchMode={callMode}
             onChat={() => setView("chat")}
+            onVideo={() => setView("video")}
             onSkip={handleSkipFromMatch}
           />
         )}
@@ -181,6 +198,23 @@ export default function Home() {
             matchId={matchId}
             onReport={() => setShowReport(true)}
             onSkip={() => setShowSkip(true)}
+            onBack={() => {
+              wsService.disconnect();
+              setView("welcome");
+              setIsSearching(false);
+            }}
+          />
+        )}
+
+        {view === "video" && matchData && (
+          <VideoRoom
+            strangerName={strangerName}
+            sharedTags={sharedTags}
+            matchId={matchId}
+            isInitiator={matchData.initiator}
+            onReport={() => setShowReport(true)}
+            onSkip={handleSkipFromMatch}
+            onSwitchToChat={() => setView("chat")}
             onBack={() => {
               wsService.disconnect();
               setView("welcome");

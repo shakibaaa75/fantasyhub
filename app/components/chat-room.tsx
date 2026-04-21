@@ -70,7 +70,7 @@ export const themeConfig: Record<
   midnight: {
     name: "Midnight",
     bg: "bg-[#0a0a1a]",
-    headerBg: "bg-[#0a0a1a]/95",
+    headerBg: "bg-[#0a0a1a]",
     headerBorder: "border-[#1a1a3e]",
     text: "text-[#e0e0ff]",
     subtext: "text-[#6b6b9e]",
@@ -93,7 +93,7 @@ export const themeConfig: Record<
   bubblegum: {
     name: "Bubblegum",
     bg: "bg-[#fff0f5]",
-    headerBg: "bg-[#fff0f5]/95",
+    headerBg: "bg-[#fff0f5]",
     headerBorder: "border-[#ffcce0]",
     text: "text-[#4a1a3a]",
     subtext: "text-[#b06b8a]",
@@ -116,7 +116,7 @@ export const themeConfig: Record<
   ocean: {
     name: "Ocean",
     bg: "bg-[#0a1628]",
-    headerBg: "bg-[#0a1628]/95",
+    headerBg: "bg-[#0a1628]",
     headerBorder: "border-[#0d2847]",
     text: "text-[#c8e6ff]",
     subtext: "text-[#4a90d9]",
@@ -139,7 +139,7 @@ export const themeConfig: Record<
   lavender: {
     name: "Lavender",
     bg: "bg-[#f3e8ff]",
-    headerBg: "bg-[#f3e8ff]/95",
+    headerBg: "bg-[#f3e8ff]",
     headerBorder: "border-[#d8b4fe]",
     text: "text-[#3a1a5c]",
     subtext: "text-[#7c3aed]",
@@ -162,7 +162,7 @@ export const themeConfig: Record<
   neon: {
     name: "Neon",
     bg: "bg-[#050505]",
-    headerBg: "bg-[#050505]/95",
+    headerBg: "bg-[#050505]",
     headerBorder: "border-[#1a1a1a]",
     text: "text-[#e0e0e0]",
     subtext: "text-[#666]",
@@ -185,7 +185,7 @@ export const themeConfig: Record<
   rose: {
     name: "Rose Gold",
     bg: "bg-[#1a0a0f]",
-    headerBg: "bg-[#1a0a0f]/95",
+    headerBg: "bg-[#1a0a0f]",
     headerBorder: "border-[#2a1518]",
     text: "text-[#ffd6e0]",
     subtext: "text-[#c4717a]",
@@ -224,49 +224,35 @@ export default function ChatRoom({
   const [showThemeMenu, setShowThemeMenu] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const inputAreaRef = useRef<HTMLDivElement>(null);
   const { formatted: timer, start, stop } = useChatTimer();
   const handlersRef = useRef<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const t = themeConfig[theme];
 
-  // ─── visualViewport API: tracks keyboard open/close on both iOS and Android ─
-  // This is exactly how Instagram/WhatsApp handle it.
-  // When the soft keyboard opens, visualViewport.height shrinks.
-  // We apply that height + offsetTop directly to the container so it
-  // sits inside the visible area, with the input always above the keyboard.
+  // ─── THE FIX: Use visualViewport to track keyboard and nudge input up ────────
+  // Instead of resizing the whole container (which causes keyboard to dismiss),
+  // we only move the INPUT BAR up by the keyboard height using a bottom offset.
+  // The messages area shrinks naturally to fill the remaining space.
   useEffect(() => {
     const vv = window.visualViewport;
+    if (!vv) return;
 
-    const applyViewport = () => {
-      if (!containerRef.current) return;
-      if (vv) {
-        containerRef.current.style.top = `${vv.offsetTop}px`;
-        containerRef.current.style.height = `${vv.height}px`;
-      } else {
-        // Fallback for older browsers
-        containerRef.current.style.top = "0px";
-        containerRef.current.style.height = `${window.innerHeight}px`;
-      }
+    const onViewportChange = () => {
+      if (!inputAreaRef.current) return;
+      // How much the keyboard is covering the screen
+      const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
+      // Push the input up by the keyboard height
+      inputAreaRef.current.style.transform = `translateY(-${Math.max(0, keyboardHeight)}px)`;
     };
 
-    applyViewport();
-
-    if (vv) {
-      vv.addEventListener("resize", applyViewport);
-      vv.addEventListener("scroll", applyViewport);
-    } else {
-      window.addEventListener("resize", applyViewport);
-    }
+    vv.addEventListener("resize", onViewportChange);
+    vv.addEventListener("scroll", onViewportChange);
 
     return () => {
-      if (vv) {
-        vv.removeEventListener("resize", applyViewport);
-        vv.removeEventListener("scroll", applyViewport);
-      } else {
-        window.removeEventListener("resize", applyViewport);
-      }
+      vv.removeEventListener("resize", onViewportChange);
+      vv.removeEventListener("scroll", onViewportChange);
     };
   }, []);
 
@@ -309,7 +295,6 @@ export default function ChatRoom({
     };
 
     handlersRef.current = { handleMessage, handleTyping, handleDisconnected };
-
     wsService.on("chat_message", handleMessage);
     wsService.on("typing", handleTyping);
     wsService.on("disconnected", handleDisconnected);
@@ -324,7 +309,7 @@ export default function ChatRoom({
     };
   }, [start, stop]);
 
-  // Auto-scroll to bottom on new messages or typing indicator
+  // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -350,37 +335,40 @@ export default function ChatRoom({
     [matchId],
   );
 
-  const handleTyping = useCallback((isTyping: boolean) => {
+  const handleTypingWs = useCallback((isTyping: boolean) => {
     wsService.send({ type: "typing", data: { is_typing: isTyping } });
   }, []);
 
   return (
+    /*
+     * LAYOUT:
+     * - Outer: position fixed, covers full screen, overflow hidden — nothing outside can scroll
+     * - flex-col: header, badge (shrink-0) | messages (flex-1, only scrollable region) | input (shrink-0)
+     * - Input area uses translateY via visualViewport to ride up with keyboard
+     *   WITHOUT causing React to re-render (no state change = keyboard stays open)
+     */
     <div
-      ref={containerRef}
-      className={`flex flex-col ${t.bg}`}
+      className={`${t.bg}`}
       style={{
-        // Initial values — overwritten immediately by visualViewport effect
         position: "fixed",
-        left: 0,
-        right: 0,
-        top: 0,
-        height: "100dvh",
-        zIndex: 50,
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
         overflow: "hidden",
-        // Smooth keyboard animation — matches iOS keyboard spring
-        transition: "top 0.15s ease-out, height 0.15s ease-out",
+        zIndex: 50,
       }}
     >
-      {/* ═══ HEADER — sticky top ═══ */}
+      {/* ═══ HEADER ═══ */}
       <div
-        className={`flex-shrink-0 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
+        className={`flex-shrink-0 ${t.headerBg} border-b ${t.headerBorder}`}
+        style={{ zIndex: 10 }}
       >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             {onBack && (
               <button
                 onClick={onBack}
-                className={`sm:hidden w-9 h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-all duration-300 shrink-0`}
+                className={`sm:hidden w-9 h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-colors shrink-0`}
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -494,49 +482,63 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* ═══ MESSAGES — only this scrolls ═══ */}
+      {/* ═══ MESSAGES — flex-1, ONLY this scrolls ═══ */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
         style={{
+          flex: "1 1 0",
+          overflowY: "auto",
+          overflowX: "hidden",
           minHeight: 0,
           overscrollBehavior: "contain",
           WebkitOverflowScrolling: "touch",
+          padding: "8px 12px",
         }}
       >
-        {messages.map((msg) => (
-          <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
-        ))}
+        <div className="space-y-1">
+          {messages.map((msg) => (
+            <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
+          ))}
 
-        {isStrangerTyping && (
-          <div className="flex justify-start w-full mb-1">
-            <div
-              className={`${t.typingBg} rounded-[1.15rem] rounded-tl-md px-3 sm:px-4 py-2.5 sm:py-3`}
-            >
-              <div className="flex gap-1">
-                <div
-                  className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
-                  style={{ animationDelay: "0ms" }}
-                />
-                <div
-                  className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
-                  style={{ animationDelay: "150ms" }}
-                />
-                <div
-                  className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
-                  style={{ animationDelay: "300ms" }}
-                />
+          {isStrangerTyping && (
+            <div className="flex justify-start w-full mb-1">
+              <div
+                className={`${t.typingBg} rounded-[1.15rem] rounded-tl-md px-4 py-3`}
+              >
+                <div className="flex gap-1">
+                  <div
+                    className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <div
+                    className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <div
+                    className="w-1.5 h-1.5 rounded-full bg-neutral-400 animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* ═══ INPUT — pinned to bottom ═══ */}
-      <div className="flex-shrink-0">
+      {/* ═══ INPUT — pinned to bottom, slides up with keyboard via transform ═══
+          Using transform instead of changing height/position means
+          React does NOT re-render, so the keyboard stays open after sending. */}
+      <div
+        ref={inputAreaRef}
+        className="flex-shrink-0"
+        style={{
+          willChange: "transform",
+          transition: "transform 0.2s ease-out",
+        }}
+      >
         <ChatInput
           onSend={handleSend}
-          onTyping={handleTyping}
+          onTyping={handleTypingWs}
           timer={timer}
           theme={theme}
         />

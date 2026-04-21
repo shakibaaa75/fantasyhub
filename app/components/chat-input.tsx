@@ -82,6 +82,8 @@ export default function ChatInput({
     setValue("");
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
+      // Keep focus on textarea so keyboard stays open
+      textareaRef.current.focus();
     }
     if (onTyping) onTyping(false);
   };
@@ -117,7 +119,6 @@ export default function ChatInput({
   return (
     <div className={`flex-shrink-0 border-t ${styles.container}`}>
       <div className="flex items-end gap-2 px-3 py-3">
-        {/* Textarea */}
         <div className="flex-1 min-w-0">
           <textarea
             ref={textareaRef}
@@ -136,8 +137,13 @@ export default function ChatInput({
           />
         </div>
 
-        {/* Send Button */}
+        {/* 
+          KEY FIX: onMouseDown preventDefault stops the button from stealing
+          focus from the textarea — which is what was dismissing the keyboard.
+          The actual send happens in onClick which fires after mousedown.
+        */}
         <button
+          onMouseDown={(e) => e.preventDefault()}
           onClick={handleSend}
           disabled={!value.trim()}
           className={`w-12 h-12 rounded-full text-white flex items-center justify-center transition-all duration-200 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${styles.button}`}
@@ -152,7 +158,6 @@ export default function ChatInput({
         </button>
       </div>
 
-      {/* Timer and hint */}
       <div className="flex items-center justify-between pb-3 px-4">
         <span className="text-[10px] text-neutral-500 hidden sm:block">
           Press Enter to send

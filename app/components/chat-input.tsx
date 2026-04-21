@@ -1,3 +1,4 @@
+// chat-input.tsx
 "use client";
 
 import { useState, useRef, KeyboardEvent, useEffect } from "react";
@@ -10,90 +11,95 @@ interface ChatInputProps {
   theme?: ChatTheme;
 }
 
+function getThemeStyles(theme: ChatTheme) {
+  switch (theme) {
+    case "midnight":
+      return {
+        container: "bg-[#0a0a1a] border-[#1a1a3e]",
+        input: "bg-[#12122a] border-[#1e1e4a] text-white placeholder-[#4a4a7a]",
+        icon: "text-[#a78bfa]",
+      };
+    case "bubblegum":
+      return {
+        container: "bg-[#fff0f5] border-[#ffcce0]",
+        input: "bg-white border-[#ffcce0] text-[#4a1a3a] placeholder-[#d4a5bc]",
+        icon: "text-[#e83e8c]",
+      };
+    case "ocean":
+      return {
+        container: "bg-[#0a1628] border-[#0d2847]",
+        input: "bg-[#0d2847] border-[#1a3a5c] text-white placeholder-[#2a5a8a]",
+        icon: "text-[#00d4ff]",
+      };
+    case "lavender":
+      return {
+        container: "bg-[#f3e8ff] border-[#d8b4fe]",
+        input: "bg-white border-[#d8b4fe] text-[#3a1a5c] placeholder-[#a78bfa]",
+        icon: "text-[#8b5cf6]",
+      };
+    case "neon":
+      return {
+        container: "bg-[#050505] border-[#1a1a1a]",
+        input: "bg-[#0a0a0a] border-[#1a1a1a] text-white placeholder-[#333]",
+        icon: "text-[#ff00ff]",
+      };
+    case "rose":
+      return {
+        container: "bg-[#1a0a0f] border-[#2a1518]",
+        input: "bg-[#2a1518] border-[#3a2025] text-white placeholder-[#6b3a42]",
+        icon: "text-[#ff6b8a]",
+      };
+    default:
+      return {
+        container: "bg-[#0a0a1a] border-[#1a1a3e]",
+        input: "bg-[#12122a] border-[#1e1e4a] text-white placeholder-[#4a4a7a]",
+        icon: "text-[#a78bfa]",
+      };
+  }
+}
+
 export default function ChatInput({
   onSend,
   onTyping,
   timer,
   theme = "midnight",
 }: ChatInputProps) {
-  const [value, setValue] = useState("");
+  const [isEmpty, setIsEmpty] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const getThemeStyles = () => {
-    switch (theme) {
-      case "midnight":
-        return {
-          container: "bg-[#0a0a1a] border-[#1a1a3e]",
-          input:
-            "bg-[#12122a] border-[#1e1e4a] text-white placeholder-[#4a4a7a]",
-          button: "bg-[#7c3aed] active:bg-[#6d28d9]",
-        };
-      case "bubblegum":
-        return {
-          container: "bg-[#fff0f5] border-[#ffcce0]",
-          input:
-            "bg-white border-[#ffcce0] text-[#4a1a3a] placeholder-[#d4a5bc]",
-          button: "bg-[#e83e8c] active:bg-[#d62d7a]",
-        };
-      case "ocean":
-        return {
-          container: "bg-[#0a1628] border-[#0d2847]",
-          input:
-            "bg-[#0d2847] border-[#1a3a5c] text-white placeholder-[#2a5a8a]",
-          button: "bg-[#0066cc] active:bg-[#0052a3]",
-        };
-      case "lavender":
-        return {
-          container: "bg-[#f3e8ff] border-[#d8b4fe]",
-          input:
-            "bg-white border-[#d8b4fe] text-[#3a1a5c] placeholder-[#a78bfa]",
-          button: "bg-[#8b5cf6] active:bg-[#7c3aed]",
-        };
-      case "neon":
-        return {
-          container: "bg-[#050505] border-[#1a1a1a]",
-          input: "bg-[#0a0a0a] border-[#1a1a1a] text-white placeholder-[#333]",
-          button: "bg-[#ff00ff] active:bg-[#e600e6]",
-        };
-      case "rose":
-        return {
-          container: "bg-[#1a0a0f] border-[#2a1518]",
-          input:
-            "bg-[#2a1518] border-[#3a2025] text-white placeholder-[#6b3a42]",
-          button: "bg-[#ff6b8a] active:bg-[#e85a78]",
-        };
-      default:
-        return {
-          container: "bg-[#0a0a1a] border-[#1a1a3e]",
-          input:
-            "bg-[#12122a] border-[#1e1e4a] text-white placeholder-[#4a4a7a]",
-          button: "bg-[#7c3aed] active:bg-[#6d28d9]",
-        };
-    }
-  };
-
-  const styles = getThemeStyles();
+  const styles = getThemeStyles(theme);
 
   const handleSend = () => {
-    const trimmed = value.trim();
-    if (!trimmed) return;
-    onSend(trimmed);
-    setValue("");
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      // Keep focus on textarea so keyboard stays open
-      textareaRef.current.focus();
-    }
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const text = textarea.value.trim();
+    if (!text) return;
+
+    onSend(text);
+
+    textarea.value = "";
+    textarea.style.height = "auto";
+    setIsEmpty(true);
+
     if (onTyping) onTyping(false);
+
+    requestAnimationFrame(() => {
+      textarea.focus({ preventScroll: true });
+    });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setValue(e.target.value);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 100)}px`;
+    const val = e.target.value;
+    setIsEmpty(!val.trim());
+
+    const ta = textareaRef.current;
+    if (ta) {
+      ta.style.height = "auto";
+      ta.style.height = `${Math.min(ta.scrollHeight, 80)}px`;
     }
+
     if (onTyping) {
       onTyping(true);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -118,53 +124,54 @@ export default function ChatInput({
 
   return (
     <div className={`flex-shrink-0 border-t ${styles.container}`}>
-      <div className="flex items-end gap-2 px-3 py-3">
-        <div className="flex-1 min-w-0">
+      <div
+        className="flex items-end gap-2 px-3"
+        style={{
+          paddingTop: "8px",
+          paddingBottom: "max(8px, env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        <div className="flex-1 min-w-0 flex items-end">
           <textarea
             ref={textareaRef}
-            value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            placeholder="Message..."
             rows={1}
-            className={`w-full px-4 py-3 rounded-2xl border text-base resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all ${styles.input}`}
+            className={`w-full px-3.5 py-2 rounded-2xl border resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/40 ${styles.input}`}
             style={{
-              maxHeight: "120px",
-              minHeight: "48px",
-              fontSize: "16px",
-              lineHeight: "1.4",
+              maxHeight: "80px",
+              minHeight: "36px",
+              fontSize: "15px",
+              lineHeight: "1.35",
+              touchAction: "manipulation",
             }}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="sentences"
           />
         </div>
 
-        {/* 
-          KEY FIX: onMouseDown preventDefault stops the button from stealing
-          focus from the textarea — which is what was dismissing the keyboard.
-          The actual send happens in onClick which fires after mousedown.
-        */}
         <button
           onMouseDown={(e) => e.preventDefault()}
           onClick={handleSend}
-          disabled={!value.trim()}
-          className={`w-12 h-12 rounded-full text-white flex items-center justify-center transition-all duration-200 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${styles.button}`}
+          disabled={isEmpty}
+          className={`flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-full transition-opacity duration-150 disabled:opacity-20 disabled:cursor-not-allowed ${styles.icon}`}
           style={{
             touchAction: "manipulation",
             WebkitTapHighlightColor: "transparent",
+            marginBottom: "0px",
           }}
+          aria-label="Send message"
         >
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="w-[18px] h-[18px]"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
           </svg>
         </button>
-      </div>
-
-      <div className="flex items-center justify-between pb-3 px-4">
-        <span className="text-[10px] text-neutral-500 hidden sm:block">
-          Press Enter to send
-        </span>
-        <span className="text-[10px] text-neutral-500 tabular-nums sm:ml-auto">
-          {timer}
-        </span>
       </div>
     </div>
   );

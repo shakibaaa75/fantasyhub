@@ -67,7 +67,6 @@
   box-sizing: border-box;
 }
 
-/* REMOVED: html, body height constraints - let them be natural */
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -118,7 +117,15 @@ input, textarea, button {
   touch-action: manipulation;
 }
 
-/* Chat mode body scroll lock - keeps page from scrolling behind chat */
-html.chat-mode {
+/*
+ * chat-mode: prevent body from scrolling behind the chat room.
+ * ChatRoom uses fixed+visualViewport so body scroll would be invisible
+ * but can still interfere on iOS — lock it here.
+ */
+html.chat-mode,
+html.chat-mode body {
   overflow: hidden;
+  /* Do NOT use position:fixed here — it resets scroll position */
+  height: 100%;
+  touch-action: none;
 }

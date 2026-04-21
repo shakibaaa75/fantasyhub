@@ -222,12 +222,53 @@ export default function ChatRoom({
   const [isStrangerTyping, setIsStrangerTyping] = useState(false);
   const [theme, setTheme] = useState<ChatTheme>("midnight");
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const { formatted: timer, start, stop } = useChatTimer();
   const handlersRef = useRef<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const t = themeConfig[theme];
+
+  // ─── visualViewport API: tracks keyboard open/close on both iOS and Android ─
+  // This is exactly how Instagram/WhatsApp handle it.
+  // When the soft keyboard opens, visualViewport.height shrinks.
+  // We apply that height + offsetTop directly to the container so it
+  // sits inside the visible area, with the input always above the keyboard.
+  useEffect(() => {
+    const vv = window.visualViewport;
+
+    const applyViewport = () => {
+      if (!containerRef.current) return;
+      if (vv) {
+        containerRef.current.style.top = `${vv.offsetTop}px`;
+        containerRef.current.style.height = `${vv.height}px`;
+      } else {
+        // Fallback for older browsers
+        containerRef.current.style.top = "0px";
+        containerRef.current.style.height = `${window.innerHeight}px`;
+      }
+    };
+
+    applyViewport();
+
+    if (vv) {
+      vv.addEventListener("resize", applyViewport);
+      vv.addEventListener("scroll", applyViewport);
+    } else {
+      window.addEventListener("resize", applyViewport);
+    }
+
+    return () => {
+      if (vv) {
+        vv.removeEventListener("resize", applyViewport);
+        vv.removeEventListener("scroll", applyViewport);
+      } else {
+        window.removeEventListener("resize", applyViewport);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -283,7 +324,7 @@ export default function ChatRoom({
     };
   }, [start, stop]);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages or typing indicator
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -314,25 +355,25 @@ export default function ChatRoom({
   }, []);
 
   return (
-    /*
-     * KEY LAYOUT TRICK (Instagram-style):
-     * - The outer div is `fixed inset-0` — it always fills the visible viewport,
-     *   including when the software keyboard pushes the viewport up on iOS/Android.
-     * - `interactive-widget=resizes-content` in the viewport meta tag (already in layout.tsx)
-     *   ensures the browser resizes the viewport when the keyboard opens,
-     *   so `inset-0` naturally shrinks and the input rides up with the keyboard.
-     * - flex-col makes header + badge stack at top, input dock at bottom.
-     * - The messages div is `flex-1 overflow-y-auto min-h-0` — it fills all
-     *   remaining space and is the ONLY scrollable region.
-     */
     <div
-      className={`fixed inset-0 flex flex-col ${t.bg}`}
-      style={{ WebkitOverflowScrolling: "touch" }}
+      ref={containerRef}
+      className={`flex flex-col ${t.bg}`}
+      style={{
+        // Initial values — overwritten immediately by visualViewport effect
+        position: "fixed",
+        left: 0,
+        right: 0,
+        top: 0,
+        height: "100dvh",
+        zIndex: 50,
+        overflow: "hidden",
+        // Smooth keyboard animation — matches iOS keyboard spring
+        transition: "top 0.15s ease-out, height 0.15s ease-out",
+      }}
     >
-      {/* ═══ HEADER — sticky at top ═══ */}
+      {/* ═══ HEADER — sticky top ═══ */}
       <div
         className={`flex-shrink-0 ${t.headerBg} border-b ${t.headerBorder} backdrop-blur-md`}
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -442,7 +483,7 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* ═══ BADGE — sticky below header ═══ */}
+      {/* ═══ BADGE ═══ */}
       <div
         className={`flex-shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
       >
@@ -453,11 +494,15 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* ═══ MESSAGES — flex-1, ONLY this scrolls ═══ */}
+      {/* ═══ MESSAGES — only this scrolls ═══ */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1 min-h-0"
-        style={{ overscrollBehavior: "contain" }}
+        className="flex-1 overflow-y-auto px-3 sm:px-4 py-2 space-y-1"
+        style={{
+          minHeight: 0,
+          overscrollBehavior: "contain",
+          WebkitOverflowScrolling: "touch",
+        }}
       >
         {messages.map((msg) => (
           <MemoizedChatMessage key={msg.id} msg={msg} theme={theme} />
@@ -487,11 +532,8 @@ export default function ChatRoom({
         )}
       </div>
 
-      {/* ═══ INPUT — docked at bottom, moves up with keyboard ═══ */}
-      <div
-        className="flex-shrink-0"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
+      {/* ═══ INPUT — pinned to bottom ═══ */}
+      <div className="flex-shrink-0">
         <ChatInput
           onSend={handleSend}
           onTyping={handleTyping}

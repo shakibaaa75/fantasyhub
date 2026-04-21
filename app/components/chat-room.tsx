@@ -1,3 +1,4 @@
+// chat-room.tsx
 "use client";
 
 import { useState, useRef, useEffect, useCallback, memo } from "react";
@@ -70,7 +71,7 @@ export const themeConfig: Record<
   midnight: {
     name: "Midnight",
     bg: "bg-[#0a0a1a]",
-    headerBg: "bg-[#0a0a1a]",
+    headerBg: "bg-[#0a0a1a]/95",
     headerBorder: "border-[#1a1a3e]",
     text: "text-[#e0e0ff]",
     subtext: "text-[#6b6b9e]",
@@ -93,7 +94,7 @@ export const themeConfig: Record<
   bubblegum: {
     name: "Bubblegum",
     bg: "bg-[#fff0f5]",
-    headerBg: "bg-[#fff0f5]",
+    headerBg: "bg-[#fff0f5]/95",
     headerBorder: "border-[#ffcce0]",
     text: "text-[#4a1a3a]",
     subtext: "text-[#b06b8a]",
@@ -116,7 +117,7 @@ export const themeConfig: Record<
   ocean: {
     name: "Ocean",
     bg: "bg-[#0a1628]",
-    headerBg: "bg-[#0a1628]",
+    headerBg: "bg-[#0a1628]/95",
     headerBorder: "border-[#0d2847]",
     text: "text-[#c8e6ff]",
     subtext: "text-[#4a90d9]",
@@ -139,7 +140,7 @@ export const themeConfig: Record<
   lavender: {
     name: "Lavender",
     bg: "bg-[#f3e8ff]",
-    headerBg: "bg-[#f3e8ff]",
+    headerBg: "bg-[#f3e8ff]/95",
     headerBorder: "border-[#d8b4fe]",
     text: "text-[#3a1a5c]",
     subtext: "text-[#7c3aed]",
@@ -162,7 +163,7 @@ export const themeConfig: Record<
   neon: {
     name: "Neon",
     bg: "bg-[#050505]",
-    headerBg: "bg-[#050505]",
+    headerBg: "bg-[#050505]/95",
     headerBorder: "border-[#1a1a1a]",
     text: "text-[#e0e0e0]",
     subtext: "text-[#666]",
@@ -185,7 +186,7 @@ export const themeConfig: Record<
   rose: {
     name: "Rose Gold",
     bg: "bg-[#1a0a0f]",
-    headerBg: "bg-[#1a0a0f]",
+    headerBg: "bg-[#1a0a0f]/95",
     headerBorder: "border-[#2a1518]",
     text: "text-[#ffd6e0]",
     subtext: "text-[#c4717a]",
@@ -223,60 +224,89 @@ export default function ChatRoom({
   const [theme, setTheme] = useState<ChatTheme>("midnight");
   const [showThemeMenu, setShowThemeMenu] = useState(false);
 
+  const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputAreaRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const { formatted: timer, start, stop } = useChatTimer();
   const handlersRef = useRef<any>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const t = themeConfig[theme];
 
-  // ─── THE FIX: Use visualViewport to track keyboard and nudge input up ────────
-  // Instead of resizing the whole container (which causes keyboard to dismiss),
-  // we only move the INPUT BAR up by the keyboard height using a bottom offset.
-  // The messages area shrinks naturally to fill the remaining space.
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * KEYBOARD TRACKING — the critical fix
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * Problem: On mobile, when the soft keyboard opens, we need the
+   * input bar to ride up with it and the messages area to shrink.
+   *
+   * Why previous attempts failed:
+   *  - CSS-only (fixed inset-0) doesn't work on iOS Safari
+   *  - React state to track keyboard height causes re-renders,
+   *    which blur the textarea and dismiss the keyboard
+   *  - translateY on just the input overlaps messages instead
+   *    of the layout actually adapting
+   *
+   * Solution: Resize the ENTIRE container via visualViewport,
+   * using DIRECT DOM MANIPULATION — no React state involved.
+   *
+   * When keyboard opens:
+   *   visualViewport.height shrinks → we set container height
+   *   → flex layout shrinks the messages area automatically
+   *   → input bar stays pinned to the bottom of the smaller container
+   *   → zero React re-renders → keyboard stays open
+   *
+   * This is exactly what Instagram/WhatsApp do.
+   * ═══════════════════════════════════════════════════════════════
+   */
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
 
-    const onViewportChange = () => {
-      if (!inputAreaRef.current) return;
-      // How much the keyboard is covering the screen
-      const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
-      // Push the input up by the keyboard height
-      inputAreaRef.current.style.transform = `translateY(-${Math.max(0, keyboardHeight)}px)`;
+    const sync = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      el.style.height = `${vv.height}px`;
+      el.style.top = `${vv.offsetTop}px`;
     };
 
-    vv.addEventListener("resize", onViewportChange);
-    vv.addEventListener("scroll", onViewportChange);
+    // Apply immediately in case keyboard is already open
+    sync();
+
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
 
     return () => {
-      vv.removeEventListener("resize", onViewportChange);
-      vv.removeEventListener("scroll", onViewportChange);
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
     };
   }, []);
 
+  // Close theme menu on outside click
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handle = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowThemeMenu(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
   }, []);
 
+  // WebSocket message handlers
   useEffect(() => {
     start();
 
     const handleMessage = (data: any) => {
-      const newMsg: ChatMsg = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        text: data.content || data,
-        sender: "stranger",
-        time: getTime(),
-      };
-      setMessages((prev) => [...prev, newMsg]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          text: data.content || data,
+          sender: "stranger" as const,
+          time: getTime(),
+        },
+      ]);
     };
 
     const handleTyping = () => {
@@ -285,16 +315,22 @@ export default function ChatRoom({
     };
 
     const handleDisconnected = () => {
-      const systemMsg: ChatMsg = {
-        id: Date.now().toString(),
-        text: "Stranger has disconnected",
-        sender: "stranger",
-        time: getTime(),
-      };
-      setMessages((prev) => [...prev, systemMsg]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          text: "Stranger has disconnected",
+          sender: "stranger" as const,
+          time: getTime(),
+        },
+      ]);
     };
 
-    handlersRef.current = { handleMessage, handleTyping, handleDisconnected };
+    handlersRef.current = {
+      handleMessage,
+      handleTyping,
+      handleDisconnected,
+    };
     wsService.on("chat_message", handleMessage);
     wsService.on("typing", handleTyping);
     wsService.on("disconnected", handleDisconnected);
@@ -309,22 +345,25 @@ export default function ChatRoom({
     };
   }, [start, stop]);
 
-  // Scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages or typing indicator change
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
     }
   }, [messages, isStrangerTyping]);
 
   const handleSend = useCallback(
     (text: string) => {
-      const userMsg: ChatMsg = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        text,
-        sender: "you",
-        time: getTime(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          text,
+          sender: "you" as const,
+          time: getTime(),
+        },
+      ]);
       wsService.send({
         type: "chat_message",
         data: { content: text },
@@ -341,17 +380,26 @@ export default function ChatRoom({
 
   return (
     /*
-     * LAYOUT:
-     * - Outer: position fixed, covers full screen, overflow hidden — nothing outside can scroll
-     * - flex-col: header, badge (shrink-0) | messages (flex-1, only scrollable region) | input (shrink-0)
-     * - Input area uses translateY via visualViewport to ride up with keyboard
-     *   WITHOUT causing React to re-render (no state change = keyboard stays open)
+     * Container: position fixed, full screen.
+     * height and top are overridden by visualViewport sync effect
+     * via direct DOM manipulation (no React state).
+     *
+     * Flex column layout:
+     *   header    — flex-shrink-0, always visible at top
+     *   badge     — flex-shrink-0
+     *   messages  — flex: 1 1 0, minHeight: 0, overflow-y: auto
+     *               ↑ this is the ONLY scrollable region
+     *   input     — flex-shrink-0, pinned to bottom
      */
     <div
+      ref={containerRef}
       className={`${t.bg}`}
       style={{
         position: "fixed",
-        inset: 0,
+        left: 0,
+        right: 0,
+        top: 0,
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -360,7 +408,7 @@ export default function ChatRoom({
     >
       {/* ═══ HEADER ═══ */}
       <div
-        className={`flex-shrink-0 ${t.headerBg} border-b ${t.headerBorder}`}
+        className={`flex-shrink-0 ${t.headerBg} backdrop-blur-md border-b ${t.headerBorder}`}
         style={{ zIndex: 10 }}
       >
         <div className="flex items-center justify-between px-3 sm:px-4 h-12 sm:h-14">
@@ -369,6 +417,7 @@ export default function ChatRoom({
               <button
                 onClick={onBack}
                 className={`sm:hidden w-9 h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText} transition-colors shrink-0`}
+                style={{ touchAction: "manipulation" }}
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -400,15 +449,18 @@ export default function ChatRoom({
               <button
                 onClick={() => setShowThemeMenu(!showThemeMenu)}
                 className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
+                style={{ touchAction: "manipulation" }}
               >
                 <Sparkles className="w-5 h-5 sm:w-4 sm:h-4" />
               </button>
+
               <AnimatePresence>
                 {showThemeMenu && (
                   <motion.div
                     initial={{ opacity: 0, y: -8, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
                     className={`absolute right-0 top-12 rounded-xl border p-2 shadow-2xl z-50 min-w-[160px] ${t.menuBg} ${t.menuBorder}`}
                   >
                     {(Object.keys(themeConfig) as ChatTheme[]).map((th) => (
@@ -423,6 +475,7 @@ export default function ChatRoom({
                             ? `${t.menuActiveBg} ${t.menuActiveText}`
                             : `${t.menuText} ${t.menuItemHover}`
                         }`}
+                        style={{ touchAction: "manipulation" }}
                       >
                         <div className="flex items-center gap-2">
                           <div
@@ -434,7 +487,9 @@ export default function ChatRoom({
                           <span className="truncate">
                             {themeConfig[th].name}
                           </span>
-                          {theme === th && <span className="ml-auto">✓</span>}
+                          {theme === th && (
+                            <span className="ml-auto text-xs">✓</span>
+                          )}
                         </div>
                       </button>
                     ))}
@@ -446,6 +501,7 @@ export default function ChatRoom({
             <button
               onClick={() => setIsMuted(!isMuted)}
               className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
+              style={{ touchAction: "manipulation" }}
             >
               {isMuted ? (
                 <VolumeX className="w-5 h-5 sm:w-4 sm:h-4" />
@@ -457,6 +513,7 @@ export default function ChatRoom({
             <button
               onClick={onReport}
               className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} hover:text-red-400`}
+              style={{ touchAction: "manipulation" }}
             >
               <Flag className="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
@@ -464,6 +521,7 @@ export default function ChatRoom({
             <button
               onClick={onSkip}
               className={`w-10 h-10 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-neutral-500 ${t.iconHoverBg} ${t.iconHoverText}`}
+              style={{ touchAction: "manipulation" }}
             >
               <ArrowRight className="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
@@ -471,26 +529,26 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* ═══ BADGE ═══ */}
+      {/* ═══ MATCH BADGE ═══ */}
       <div
         className={`flex-shrink-0 flex justify-center px-4 pt-2 pb-1 ${t.bg}`}
       >
         <div
           className={`text-[10px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full border ${t.badgeBg} ${t.badgeBorder} ${t.badgeText} truncate max-w-full`}
         >
-          matched on {sharedTags.join(" • ")}
+          matched on {sharedTags.join(" · ")}
         </div>
       </div>
 
-      {/* ═══ MESSAGES — flex-1, ONLY this scrolls ═══ */}
+      {/* ═══ MESSAGES — the ONLY scrollable region ═══ */}
       <div
         ref={scrollRef}
         style={{
           flex: "1 1 0",
+          minHeight: 0, // Critical: lets flexbox shrink this below content height
           overflowY: "auto",
           overflowX: "hidden",
-          minHeight: 0,
-          overscrollBehavior: "contain",
+          overscrollBehavior: "contain", // Prevents scroll chaining to body
           WebkitOverflowScrolling: "touch",
           padding: "8px 12px",
         }}
@@ -525,24 +583,14 @@ export default function ChatRoom({
         </div>
       </div>
 
-      {/* ═══ INPUT — pinned to bottom, slides up with keyboard via transform ═══
-          Using transform instead of changing height/position means
-          React does NOT re-render, so the keyboard stays open after sending. */}
-      <div
-        ref={inputAreaRef}
-        className="flex-shrink-0"
-        style={{
-          willChange: "transform",
-          transition: "transform 0.2s ease-out",
-        }}
-      >
-        <ChatInput
-          onSend={handleSend}
-          onTyping={handleTypingWs}
-          timer={timer}
-          theme={theme}
-        />
-      </div>
+      {/* ═══ INPUT BAR — pinned to bottom, moves with keyboard
+           because the container itself shrinks via visualViewport ═══ */}
+      <ChatInput
+        onSend={handleSend}
+        onTyping={handleTypingWs}
+        timer={timer}
+        theme={theme}
+      />
     </div>
   );
 }

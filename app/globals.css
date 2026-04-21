@@ -122,14 +122,24 @@ input, textarea, button {
  * The ChatRoom component is position:fixed so the page body
  * should never be visible or scrollable.
  */
+/*
+ * Chat mode: completely lock the document so nothing behind
+ * the fixed ChatRoom can scroll or receive touch gestures.
+ *
+ * The ChatRoom component is position:fixed inset-0 with its own
+ * overflow management, so the body should be inert.
+ */
 html.chat-mode {
-  overflow: hidden;
-  height: 100%;
+  overflow: hidden !important;
+  height: 100% !important;
+  height: 100dvh !important;
 }
 html.chat-mode body {
-  overflow: hidden;
-  height: 100%;
-  /* Prevent iOS bounce/overscroll on the body */
-  overscroll-behavior: none;
-  touch-action: none;
+  overflow: hidden !important;
+  height: 100% !important;
+  overscroll-behavior: none !important;
+  /* Don't set touch-action: none here — it can prevent the
+     browser's native "tap outside input to dismiss keyboard"
+     behavior which users expect. overscroll-behavior: none
+     is enough to block rubber-band scrolling. */
 }

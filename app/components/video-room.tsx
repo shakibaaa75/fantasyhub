@@ -57,10 +57,9 @@ export default function VideoRoom({
   const [partnerVideoEnabled, setPartnerVideoEnabled] = useState(true);
   const { formatted: timer, start, stop } = useChatTimer();
 
-  // FIX: Remove calledRef — let the hook handle it via mount counting
+  // FIX: Use a simple started flag that resets on unmount
   const startedRef = useRef(false);
 
-  // Start call exactly once per actual mount
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
@@ -107,7 +106,7 @@ export default function VideoRoom({
       {/* Remote video — full screen */}
       <div className="absolute inset-0 bg-[#080810]">
         <video
-          ref={remoteVideoRef} // FIX: Direct ref from hook, no callback wrapper
+          ref={remoteVideoRef}
           autoPlay
           playsInline
           className={`w-full h-full object-cover transition-opacity duration-300 ${remoteStream && partnerVideoEnabled ? "opacity-100" : "opacity-0"}`}
@@ -144,7 +143,7 @@ export default function VideoRoom({
       {/* Local PiP */}
       <div className="absolute top-4 right-4 w-28 h-40 sm:w-36 sm:h-48 rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-[#1a1a2e] z-10">
         <video
-          ref={localVideoRef} // FIX: Direct ref from hook
+          ref={localVideoRef}
           autoPlay
           playsInline
           muted

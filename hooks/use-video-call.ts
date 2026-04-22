@@ -27,22 +27,32 @@ function isPCUsable(pc: RTCPeerConnection | null): pc is RTCPeerConnection {
   return pc !== null && pc.connectionState !== 'closed';
 }
 
+// EXPANDED: UDP + TCP + TLS TURN for long-distance/restricted networks
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
+  // TURN UDP (fastest when it works)
   {
     urls: 'turn:openrelay.metered.ca:80',
     username: 'openrelayproject',
     credential: 'openrelayproject',
   },
+  // TURN TCP (bypasses UDP-blocking firewalls)
+  {
+    urls: 'turn:openrelay.metered.ca:80?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+  // TURN TCP on 443 (bypasses port-restrictive firewalls)
   {
     urls: 'turn:openrelay.metered.ca:443',
     username: 'openrelayproject',
     credential: 'openrelayproject',
   },
+  // TURNS (TLS) on 443 — looks like HTTPS, bypasses DPI/corporate proxies
   {
-    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+    urls: 'turns:openrelay.metered.ca:443?transport=tcp',
     username: 'openrelayproject',
     credential: 'openrelayproject',
   },
@@ -68,7 +78,6 @@ export function useVideoCall(): UseVideoCallReturn {
 
   const destroyedRef = useRef(false);
   const isStartingRef = useRef(false);
-  // FIX: Track mount count to handle StrictMode properly
   const mountCountRef = useRef(0);
 
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
@@ -97,9 +106,6 @@ export function useVideoCall(): UseVideoCallReturn {
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     localStreamRef.current = null;
 
-    // Don't null out video elements here — let React manage them
-    // Just stop the tracks and close the PC
-
     const pc = pcRef.current;
     if (pc) {
       pc.ontrack = null;
@@ -107,6 +113,8 @@ export function useVideoCall(): UseVideoCallReturn {
       pc.onconnectionstatechange = null;
       pc.oniceconnectionstatechange = null;
       pc.onsignalingstatechange = null;
+      pc.onicecandidateerror = null;
+      pc.onicegatheringstatechange = null;
       try { pc.close(); } catch { /* ignore */ }
       pcRef.current = null;
     }
@@ -129,26 +137,24 @@ export function useVideoCall(): UseVideoCallReturn {
     });
   }, []);
 
-  // FIX: Proper StrictMode handling
+  // StrictMode-safe mount/unmount
   useEffect(() => {
     mountCountRef.current += 1;
     const mountId = mountCountRef.current;
     destroyedRef.current = false;
-    
     console.log(`[VideoCall] mount #${mountId}`);
-    
+
     return () => {
       console.log(`[VideoCall] unmount #${mountId}`);
       destroyedRef.current = true;
       teardown();
-      // Only reset state if this is the final unmount (not StrictMode double unmount)
       if (mountId === mountCountRef.current) {
         resetState();
       }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-attach streams when video elements mount after stream is available
+  // Re-attach streams when refs or streams change
   useEffect(() => {
     if (state.localStream) attachToEl(localVideoRef.current, state.localStream);
   }, [state.localStream, attachToEl]);
@@ -162,7 +168,6 @@ export function useVideoCall(): UseVideoCallReturn {
       console.log('[VideoCall] startCall aborted — component destroyed');
       return;
     }
-
     if (isStartingRef.current) {
       console.log('[VideoCall] startCall already in progress, ignoring');
       return;
@@ -174,7 +179,6 @@ export function useVideoCall(): UseVideoCallReturn {
       resetState();
       await new Promise(r => setTimeout(r, 100));
     }
-
     if (destroyedRef.current) return;
 
     isStartingRef.current = true;
@@ -184,7 +188,11 @@ export function useVideoCall(): UseVideoCallReturn {
     dbg(`starting — ${isInitiator ? 'INITIATOR' : 'ANSWERER'}`);
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
-    const localPc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const localPc = new RTCPeerConnection({
+      iceServers: ICE_SERVERS,
+      iceCandidatePoolSize: 10,
+      iceTransportPolicy: 'all',
+    });
     pcRef.current = localPc;
 
     console.log('[VideoCall] PC created');
@@ -198,7 +206,8 @@ export function useVideoCall(): UseVideoCallReturn {
       }
     };
 
-    // Wire handlers
+    // ========== PC EVENT HANDLERS ==========
+
     localPc.ontrack = (ev) => {
       console.log('[VideoCall] ontrack:', ev.track.kind, 'streams:', ev.streams.length);
       const [remoteStream] = ev.streams;
@@ -207,20 +216,25 @@ export function useVideoCall(): UseVideoCallReturn {
         return;
       }
       setState(prev => ({ ...prev, remoteStream, isConnecting: false }));
-      // Use setTimeout to ensure state update has processed
-      setTimeout(() => {
-        attachToEl(remoteVideoRef.current, remoteStream);
-      }, 0);
+      setTimeout(() => attachToEl(remoteVideoRef.current, remoteStream), 0);
       dbg('remote track received ✓');
     };
 
     localPc.onicecandidate = (ev) => {
       if (ev.candidate) {
-        console.log('[VideoCall] local ICE:', ev.candidate.type, ev.candidate.protocol);
+        console.log('[VideoCall] local ICE:', ev.candidate.type, ev.candidate.protocol, ev.candidate.address);
         wsService.sendIceCandidate(ev.candidate.toJSON());
       } else {
         console.log('[VideoCall] ICE gathering complete');
       }
+    };
+
+    // CRITICAL: Log ICE errors to diagnose TURN failures
+    localPc.onicecandidateerror = (event) => {
+      console.warn(
+        `[VideoCall] ICE error ${event.errorCode}: ${event.errorText} | ` +
+        `server: ${event.url} | host: ${event.address}:${event.port}`
+      );
     };
 
     localPc.onconnectionstatechange = () => {
@@ -229,7 +243,7 @@ export function useVideoCall(): UseVideoCallReturn {
       if (s === 'connected') {
         setState(prev => ({ ...prev, isConnected: true, isConnecting: false }));
       } else if (s === 'failed') {
-        setState(prev => ({ ...prev, isConnected: false, isConnecting: false, error: 'Connection failed. Try again or check TURN config.' }));
+        setState(prev => ({ ...prev, isConnected: false, isConnecting: false, error: 'Connection failed. TURN server may be unreachable.' }));
       } else if (s === 'disconnected' || s === 'closed') {
         setState(prev => ({ ...prev, isConnected: false, isConnecting: false }));
       }
@@ -251,7 +265,8 @@ export function useVideoCall(): UseVideoCallReturn {
       console.log('[VideoCall] signaling:', localPc.signalingState);
     };
 
-    // WS signaling handlers
+    // ========== WS SIGNALING HANDLERS ==========
+
     const onOffer = async (data: RTCSessionDescriptionInit) => {
       if (!isPCUsable(localPc)) { console.log('[VideoCall] offer ignored — PC unusable'); return; }
       console.log('[VideoCall] got offer, signaling:', localPc.signalingState);
@@ -307,6 +322,8 @@ export function useVideoCall(): UseVideoCallReturn {
       wsService.off('ice_candidate', onIce);
     };
 
+    // ========== GET MEDIA & START ==========
+
     try {
       dbg('requesting camera/mic');
       let stream: MediaStream;
@@ -338,8 +355,6 @@ export function useVideoCall(): UseVideoCallReturn {
 
       localStreamRef.current = stream;
       setState(prev => ({ ...prev, localStream: stream }));
-      
-      // FIX: Attach immediately and also after a tick to handle StrictMode timing
       attachToEl(localVideoRef.current, stream);
       setTimeout(() => attachToEl(localVideoRef.current, stream), 50);
 
@@ -355,8 +370,28 @@ export function useVideoCall(): UseVideoCallReturn {
         dbg('creating offer');
         const offer = await localPc.createOffer();
         await localPc.setLocalDescription(offer);
-        wsService.sendOffer(offer);
-        dbg('offer sent — waiting for answer');
+
+        // CRITICAL FIX: Wait for ICE gathering so relay candidates are included
+        if (localPc.iceGatheringState !== 'complete') {
+          dbg('waiting for ICE gathering...');
+          await new Promise<void>((resolve) => {
+            const check = () => {
+              if (localPc.iceGatheringState === 'complete') {
+                localPc.onicegatheringstatechange = null;
+                resolve();
+              }
+            };
+            localPc.onicegatheringstatechange = check;
+            setTimeout(() => {
+              console.log('[VideoCall] ICE gathering timeout — sending what we have');
+              localPc.onicegatheringstatechange = null;
+              resolve();
+            }, 3000);
+          });
+        }
+
+        wsService.sendOffer(localPc.localDescription!);
+        dbg('offer sent with ICE candidates');
       } else {
         dbg('answerer ready — waiting for offer');
       }

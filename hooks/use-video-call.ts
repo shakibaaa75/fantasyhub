@@ -66,12 +66,10 @@ export function useVideoCall(): UseVideoCallReturn {
   const localStreamRef = useRef<MediaStream | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
 
-  // This flag is set to true when the component unmounts.
-  // startCall checks it after every await to abort cleanly.
   const destroyedRef = useRef(false);
-
-  // Whether a startCall is actively running (prevents double-start)
   const isStartingRef = useRef(false);
+  // FIX: Track mount count to handle StrictMode properly
+  const mountCountRef = useRef(0);
 
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const remoteDescSetRef = useRef(false);
@@ -84,11 +82,12 @@ export function useVideoCall(): UseVideoCallReturn {
   const attachToEl = useCallback((el: HTMLVideoElement | null, stream: MediaStream | null) => {
     if (!el || !stream) return;
     console.log('[VideoCall] attaching stream, tracks:', stream.getTracks().map(t => `${t.kind}:${t.readyState}`).join(', '));
-    el.srcObject = stream;
+    if (el.srcObject !== stream) {
+      el.srcObject = stream;
+    }
     el.play().catch(e => console.warn('[VideoCall] play() blocked:', e.message));
   }, []);
 
-  // Full teardown — stops tracks, closes PC, removes WS listeners
   const teardown = useCallback(() => {
     console.log('[VideoCall] teardown()');
 
@@ -98,8 +97,8 @@ export function useVideoCall(): UseVideoCallReturn {
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     localStreamRef.current = null;
 
-    if (localVideoRef.current) localVideoRef.current.srcObject = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    // Don't null out video elements here — let React manage them
+    // Just stop the tracks and close the PC
 
     const pc = pcRef.current;
     if (pc) {
@@ -117,7 +116,6 @@ export function useVideoCall(): UseVideoCallReturn {
     isStartingRef.current = false;
   }, []);
 
-  // Reset visible state (separate from teardown so we can call them independently)
   const resetState = useCallback(() => {
     setState({
       isConnected: false,
@@ -131,7 +129,26 @@ export function useVideoCall(): UseVideoCallReturn {
     });
   }, []);
 
-  // Re-attach streams when video elements mount after stream is already available
+  // FIX: Proper StrictMode handling
+  useEffect(() => {
+    mountCountRef.current += 1;
+    const mountId = mountCountRef.current;
+    destroyedRef.current = false;
+    
+    console.log(`[VideoCall] mount #${mountId}`);
+    
+    return () => {
+      console.log(`[VideoCall] unmount #${mountId}`);
+      destroyedRef.current = true;
+      teardown();
+      // Only reset state if this is the final unmount (not StrictMode double unmount)
+      if (mountId === mountCountRef.current) {
+        resetState();
+      }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-attach streams when video elements mount after stream is available
   useEffect(() => {
     if (state.localStream) attachToEl(localVideoRef.current, state.localStream);
   }, [state.localStream, attachToEl]);
@@ -141,7 +158,6 @@ export function useVideoCall(): UseVideoCallReturn {
   }, [state.remoteStream, attachToEl]);
 
   const startCall = useCallback(async (isInitiator: boolean) => {
-    // Guard: don't start if component already unmounted
     if (destroyedRef.current) {
       console.log('[VideoCall] startCall aborted — component destroyed');
       return;
@@ -159,7 +175,6 @@ export function useVideoCall(): UseVideoCallReturn {
       await new Promise(r => setTimeout(r, 100));
     }
 
-    // Check again after await
     if (destroyedRef.current) return;
 
     isStartingRef.current = true;
@@ -169,11 +184,7 @@ export function useVideoCall(): UseVideoCallReturn {
     dbg(`starting — ${isInitiator ? 'INITIATOR' : 'ANSWERER'}`);
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
-    let pc: RTCPeerConnection | null = null;
-    // localPc is a closure-local reference so async handlers always have it
-    // even after pcRef might change
     const localPc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    pc = localPc;
     pcRef.current = localPc;
 
     console.log('[VideoCall] PC created');
@@ -189,10 +200,17 @@ export function useVideoCall(): UseVideoCallReturn {
 
     // Wire handlers
     localPc.ontrack = (ev) => {
-      console.log('[VideoCall] ontrack:', ev.track.kind);
+      console.log('[VideoCall] ontrack:', ev.track.kind, 'streams:', ev.streams.length);
       const [remoteStream] = ev.streams;
+      if (!remoteStream) {
+        console.warn('[VideoCall] ontrack but no streams');
+        return;
+      }
       setState(prev => ({ ...prev, remoteStream, isConnecting: false }));
-      attachToEl(remoteVideoRef.current, remoteStream);
+      // Use setTimeout to ensure state update has processed
+      setTimeout(() => {
+        attachToEl(remoteVideoRef.current, remoteStream);
+      }, 0);
       dbg('remote track received ✓');
     };
 
@@ -233,7 +251,7 @@ export function useVideoCall(): UseVideoCallReturn {
       console.log('[VideoCall] signaling:', localPc.signalingState);
     };
 
-    // WS signaling handlers — use localPc (closure), not pcRef
+    // WS signaling handlers
     const onOffer = async (data: RTCSessionDescriptionInit) => {
       if (!isPCUsable(localPc)) { console.log('[VideoCall] offer ignored — PC unusable'); return; }
       console.log('[VideoCall] got offer, signaling:', localPc.signalingState);
@@ -290,7 +308,6 @@ export function useVideoCall(): UseVideoCallReturn {
     };
 
     try {
-      // Get media AFTER wiring up all handlers
       dbg('requesting camera/mic');
       let stream: MediaStream;
       try {
@@ -304,7 +321,6 @@ export function useVideoCall(): UseVideoCallReturn {
         setState(prev => ({ ...prev, isVideoEnabled: false }));
       }
 
-      // After every await: bail if component was destroyed or PC was closed
       if (destroyedRef.current) {
         console.log('[VideoCall] destroyed during getUserMedia — stopping tracks');
         stream.getTracks().forEach(t => t.stop());
@@ -322,7 +338,10 @@ export function useVideoCall(): UseVideoCallReturn {
 
       localStreamRef.current = stream;
       setState(prev => ({ ...prev, localStream: stream }));
+      
+      // FIX: Attach immediately and also after a tick to handle StrictMode timing
       attachToEl(localVideoRef.current, stream);
+      setTimeout(() => attachToEl(localVideoRef.current, stream), 50);
 
       stream.getTracks().forEach(t => {
         localPc.addTrack(t, stream);
@@ -330,7 +349,6 @@ export function useVideoCall(): UseVideoCallReturn {
       });
       dbg('local stream ready');
 
-      // Check again before offer creation
       if (destroyedRef.current) { isStartingRef.current = false; return; }
 
       if (isInitiator) {
@@ -379,16 +397,6 @@ export function useVideoCall(): UseVideoCallReturn {
     teardown();
     resetState();
   }, [teardown, resetState]);
-
-  // On unmount: mark destroyed FIRST, then teardown
-  // This prevents startCall from continuing after unmount
-  useEffect(() => {
-    destroyedRef.current = false; // reset on mount
-    return () => {
-      destroyedRef.current = true;
-      teardown();
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     ...state,

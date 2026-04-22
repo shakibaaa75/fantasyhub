@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic,
@@ -57,57 +57,13 @@ export default function VideoRoom({
   const [partnerVideoEnabled, setPartnerVideoEnabled] = useState(true);
   const { formatted: timer, start, stop } = useChatTimer();
 
-  // Use a ref so the effect only fires once even in React StrictMode
-  const calledRef = useRef(false);
+  // FIX: Remove calledRef — let the hook handle it via mount counting
+  const startedRef = useRef(false);
 
-  // Ref callbacks — attach stream to element the moment it mounts in the DOM
-  const localVideoCallback = useCallback(
-    (el: HTMLVideoElement | null) => {
-      (
-        localVideoRef as React.MutableRefObject<HTMLVideoElement | null>
-      ).current = el;
-      if (el && localStream) {
-        el.srcObject = localStream;
-        el.play().catch(() => {});
-      }
-    },
-    [localVideoRef, localStream],
-  );
-
-  const remoteVideoCallback = useCallback(
-    (el: HTMLVideoElement | null) => {
-      (
-        remoteVideoRef as React.MutableRefObject<HTMLVideoElement | null>
-      ).current = el;
-      if (el && remoteStream) {
-        el.srcObject = remoteStream;
-        el.play().catch(() => {});
-      }
-    },
-    [remoteVideoRef, remoteStream],
-  );
-
-  // Re-attach if stream changes after element is already mounted
+  // Start call exactly once per actual mount
   useEffect(() => {
-    const el = localVideoRef.current;
-    if (el && localStream && el.srcObject !== localStream) {
-      el.srcObject = localStream;
-      el.play().catch(() => {});
-    }
-  }, [localStream, localVideoRef]);
-
-  useEffect(() => {
-    const el = remoteVideoRef.current;
-    if (el && remoteStream && el.srcObject !== remoteStream) {
-      el.srcObject = remoteStream;
-      el.play().catch(() => {});
-    }
-  }, [remoteStream, remoteVideoRef]);
-
-  // Start call exactly once
-  useEffect(() => {
-    if (calledRef.current) return;
-    calledRef.current = true;
+    if (startedRef.current) return;
+    startedRef.current = true;
 
     start();
     startCall(isInitiator);
@@ -119,7 +75,6 @@ export default function VideoRoom({
     return () => {
       stop();
       wsService.off("video_toggle", onVideoToggle);
-      // Note: useVideoCall's own useEffect handles PC teardown on unmount
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -152,7 +107,7 @@ export default function VideoRoom({
       {/* Remote video — full screen */}
       <div className="absolute inset-0 bg-[#080810]">
         <video
-          ref={remoteVideoCallback}
+          ref={remoteVideoRef} // FIX: Direct ref from hook, no callback wrapper
           autoPlay
           playsInline
           className={`w-full h-full object-cover transition-opacity duration-300 ${remoteStream && partnerVideoEnabled ? "opacity-100" : "opacity-0"}`}
@@ -189,7 +144,7 @@ export default function VideoRoom({
       {/* Local PiP */}
       <div className="absolute top-4 right-4 w-28 h-40 sm:w-36 sm:h-48 rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-[#1a1a2e] z-10">
         <video
-          ref={localVideoCallback}
+          ref={localVideoRef} // FIX: Direct ref from hook
           autoPlay
           playsInline
           muted
@@ -227,7 +182,7 @@ export default function VideoRoom({
         </div>
       </div>
 
-      {/* Debug badge — remove in production */}
+      {/* Debug badge */}
       <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-black/70 border border-white/10 max-w-xs text-center">
         <span className="text-[10px] font-mono text-yellow-300 break-all">
           {debugStatus}
@@ -304,7 +259,7 @@ export default function VideoRoom({
               <div className="flex flex-col gap-2">
                 <button
                   onClick={() => {
-                    calledRef.current = false;
+                    startedRef.current = false;
                     startCall(isInitiator);
                   }}
                   className="px-6 py-2.5 rounded-xl bg-purple-600 text-white font-medium text-sm hover:bg-purple-700"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic,
@@ -8,9 +8,10 @@ import {
   Video,
   VideoOff,
   PhoneOff,
-  MonitorUp,
+  SkipForward,
   MessageSquare,
   User,
+  WifiOff,
 } from "lucide-react";
 import { useVideoCall } from "@/hooks/use-video-call";
 import { wsService } from "@/lib/websocket-service";
@@ -30,9 +31,7 @@ interface VideoRoomProps {
 export default function VideoRoom({
   strangerName,
   sharedTags,
-  matchId,
   isInitiator,
-  onReport,
   onSkip,
   onSwitchToChat,
   onBack,
@@ -45,6 +44,7 @@ export default function VideoRoom({
     isVideoEnabled,
     isAudioEnabled,
     error,
+    debugStatus,
     localVideoRef,
     remoteVideoRef,
     startCall,
@@ -57,150 +57,181 @@ export default function VideoRoom({
   const [partnerVideoEnabled, setPartnerVideoEnabled] = useState(true);
   const { formatted: timer, start, stop } = useChatTimer();
 
-  // Start the call and timer on mount
+  // Use a ref so the effect only fires once even in React StrictMode
+  const calledRef = useRef(false);
+
+  // Ref callbacks — attach stream to element the moment it mounts in the DOM
+  const localVideoCallback = useCallback(
+    (el: HTMLVideoElement | null) => {
+      (
+        localVideoRef as React.MutableRefObject<HTMLVideoElement | null>
+      ).current = el;
+      if (el && localStream) {
+        el.srcObject = localStream;
+        el.play().catch(() => {});
+      }
+    },
+    [localVideoRef, localStream],
+  );
+
+  const remoteVideoCallback = useCallback(
+    (el: HTMLVideoElement | null) => {
+      (
+        remoteVideoRef as React.MutableRefObject<HTMLVideoElement | null>
+      ).current = el;
+      if (el && remoteStream) {
+        el.srcObject = remoteStream;
+        el.play().catch(() => {});
+      }
+    },
+    [remoteVideoRef, remoteStream],
+  );
+
+  // Re-attach if stream changes after element is already mounted
   useEffect(() => {
+    const el = localVideoRef.current;
+    if (el && localStream && el.srcObject !== localStream) {
+      el.srcObject = localStream;
+      el.play().catch(() => {});
+    }
+  }, [localStream, localVideoRef]);
+
+  useEffect(() => {
+    const el = remoteVideoRef.current;
+    if (el && remoteStream && el.srcObject !== remoteStream) {
+      el.srcObject = remoteStream;
+      el.play().catch(() => {});
+    }
+  }, [remoteStream, remoteVideoRef]);
+
+  // Start call exactly once
+  useEffect(() => {
+    if (calledRef.current) return;
+    calledRef.current = true;
+
     start();
-    startCall(isInitiator).catch((err) => {
-      console.error("Failed to start call:", err);
-    });
+    startCall(isInitiator);
 
-    // Listen for partner's video toggle
-    const handleVideoToggle = (data: { enabled: boolean }) => {
-      setPartnerVideoEnabled(data.enabled);
-    };
-
-    wsService.on("video_toggle", handleVideoToggle);
+    const onVideoToggle = (d: { enabled: boolean }) =>
+      setPartnerVideoEnabled(d.enabled);
+    wsService.on("video_toggle", onVideoToggle);
 
     return () => {
       stop();
-      wsService.off("video_toggle", handleVideoToggle);
+      wsService.off("video_toggle", onVideoToggle);
+      // Note: useVideoCall's own useEffect handles PC teardown on unmount
     };
-  }, [isInitiator, startCall, start, stop]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Hide controls after inactivity
+  // Auto-hide controls
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
+    let t: ReturnType<typeof setTimeout>;
     const show = () => {
       setShowControls(true);
-      clearTimeout(timeout);
-      timeout = setTimeout(() => setShowControls(false), 3000);
+      clearTimeout(t);
+      t = setTimeout(() => setShowControls(false), 3500);
     };
-
     window.addEventListener("mousemove", show);
     window.addEventListener("touchstart", show);
     show();
-
     return () => {
       window.removeEventListener("mousemove", show);
       window.removeEventListener("touchstart", show);
-      clearTimeout(timeout);
+      clearTimeout(t);
     };
   }, []);
 
-  const handleEndCall = () => {
+  const handleEnd = () => {
     endCall();
     onSkip();
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      {/* Video Grid */}
-      <div className="flex-1 relative">
-        {/* Remote Video (Full Screen) */}
-        <div className="absolute inset-0">
-          {remoteStream ? (
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className={`w-full h-full object-cover ${!partnerVideoEnabled ? "hidden" : ""}`}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-[#0a0a1a]">
-              <div className="text-center">
-                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-                  <User className="w-10 h-10 text-neutral-500" />
+    <div className="fixed inset-0 bg-black z-50 select-none">
+      {/* Remote video — full screen */}
+      <div className="absolute inset-0 bg-[#080810]">
+        <video
+          ref={remoteVideoCallback}
+          autoPlay
+          playsInline
+          className={`w-full h-full object-cover transition-opacity duration-300 ${remoteStream && partnerVideoEnabled ? "opacity-100" : "opacity-0"}`}
+        />
+        {(!remoteStream || !partnerVideoEnabled) && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-3">
+                {!remoteStream ? (
+                  <User className="w-10 h-10 text-neutral-700" />
+                ) : (
+                  <VideoOff className="w-10 h-10 text-neutral-700" />
+                )}
+              </div>
+              <p className="text-neutral-400 text-sm">
+                {!remoteStream ? "Waiting for partner…" : "Camera off"}
+              </p>
+              {(isConnecting || (!isConnected && !error)) && (
+                <div className="flex gap-1.5 justify-center mt-3">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-bounce"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
                 </div>
-                <p className="text-neutral-400 text-sm">
-                  {isConnecting ? "Connecting..." : "Waiting for partner"}
-                </p>
-              </div>
+              )}
             </div>
-          )}
-
-          {/* Partner video off overlay */}
-          {!partnerVideoEnabled && remoteStream && (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a1a]">
-              <div className="text-center">
-                <VideoOff className="w-12 h-12 text-neutral-600 mx-auto mb-3" />
-                <p className="text-neutral-400 text-sm">Camera off</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Local Video (Picture-in-Picture) */}
-        <div className="absolute top-4 right-4 w-32 h-44 sm:w-40 sm:h-52 rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl bg-black">
-          {localStream ? (
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className={`w-full h-full object-cover ${!isVideoEnabled ? "hidden" : ""}`}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-[#1a1a2e]">
-              <User className="w-8 h-8 text-neutral-600" />
-            </div>
-          )}
-
-          {/* Local video off overlay */}
-          {!isVideoEnabled && localStream && (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a2e]">
-              <VideoOff className="w-8 h-8 text-neutral-500" />
-            </div>
-          )}
-
-          {/* Timer badge */}
-          <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-sm">
-            <span className="text-[10px] text-white font-mono">{timer}</span>
           </div>
+        )}
+      </div>
+
+      {/* Local PiP */}
+      <div className="absolute top-4 right-4 w-28 h-40 sm:w-36 sm:h-48 rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-[#1a1a2e] z-10">
+        <video
+          ref={localVideoCallback}
+          autoPlay
+          playsInline
+          muted
+          className={`w-full h-full object-cover ${localStream && isVideoEnabled ? "opacity-100" : "opacity-0"}`}
+        />
+        {(!localStream || !isVideoEnabled) && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <VideoOff className="w-7 h-7 text-neutral-600" />
+          </div>
+        )}
+        <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/60">
+          <span className="text-[10px] text-white font-mono">{timer}</span>
         </div>
+      </div>
 
-        {/* Connection status */}
-        <AnimatePresence>
-          {isConnecting && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                <span className="text-xs text-white">Connecting...</span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Match info */}
-        <div className="absolute top-4 left-4 right-40">
-          <div className="px-3 py-2 rounded-xl bg-black/40 backdrop-blur-sm inline-block">
-            <p className="text-sm text-white font-medium">{strangerName}</p>
-            <div className="flex items-center gap-1 mt-0.5">
-              {sharedTags.slice(0, 3).map((tag) => (
+      {/* Match info */}
+      <div className="absolute top-4 left-4 right-40 z-10">
+        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/50 backdrop-blur-md border border-white/10">
+          <div
+            className={`w-2 h-2 rounded-full shrink-0 ${isConnected ? "bg-green-400" : isConnecting ? "bg-yellow-400 animate-pulse" : "bg-neutral-600"}`}
+          />
+          <div>
+            <p className="text-xs text-white font-semibold">{strangerName}</p>
+            <div className="flex gap-1 mt-0.5">
+              {sharedTags.slice(0, 2).map((t) => (
                 <span
-                  key={tag}
-                  className="text-[10px] text-lavender bg-lavender/10 px-1.5 py-0.5 rounded"
+                  key={t}
+                  className="text-[9px] text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded"
                 >
-                  {tag}
+                  {t}
                 </span>
               ))}
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Debug badge — remove in production */}
+      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-black/70 border border-white/10 max-w-xs text-center">
+        <span className="text-[10px] font-mono text-yellow-300 break-all">
+          {debugStatus}
+        </span>
       </div>
 
       {/* Controls */}
@@ -210,67 +241,48 @@ export default function VideoRoom({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-0 left-0 right-0 p-6 pb-8"
+            className="absolute bottom-0 left-0 right-0 pb-10 pt-16 z-20"
           >
-            {/* Gradient overlay for controls visibility */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
-
-            <div className="relative z-10 flex items-center justify-center gap-4">
-              {/* Audio toggle */}
-              <button
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
+            <div className="relative z-10 flex items-center justify-center gap-3 sm:gap-4">
+              <Btn
                 onClick={toggleAudio}
-                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
-                  isAudioEnabled
-                    ? "bg-white/10 text-white hover:bg-white/20"
-                    : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                }`}
-              >
-                {isAudioEnabled ? (
-                  <Mic className="w-6 h-6" />
-                ) : (
-                  <MicOff className="w-6 h-6" />
-                )}
-              </button>
-
-              {/* Video toggle */}
-              <button
+                active={isAudioEnabled}
+                icon={
+                  isAudioEnabled ? (
+                    <Mic className="w-5 h-5" />
+                  ) : (
+                    <MicOff className="w-5 h-5" />
+                  )
+                }
+              />
+              <Btn
                 onClick={toggleVideo}
-                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
-                  isVideoEnabled
-                    ? "bg-white/10 text-white hover:bg-white/20"
-                    : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                }`}
-              >
-                {isVideoEnabled ? (
-                  <Video className="w-6 h-6" />
-                ) : (
-                  <VideoOff className="w-6 h-6" />
-                )}
-              </button>
-
-              {/* Switch to chat */}
-              <button
+                active={isVideoEnabled}
+                icon={
+                  isVideoEnabled ? (
+                    <Video className="w-5 h-5" />
+                  ) : (
+                    <VideoOff className="w-5 h-5" />
+                  )
+                }
+              />
+              <Btn
                 onClick={onSwitchToChat}
-                className="w-14 h-14 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all"
-              >
-                <MessageSquare className="w-6 h-6" />
-              </button>
-
-              {/* End call */}
+                active
+                icon={<MessageSquare className="w-5 h-5" />}
+              />
               <button
-                onClick={handleEndCall}
-                className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-all shadow-lg shadow-red-500/30"
+                onClick={handleEnd}
+                className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 active:scale-95 transition-all shadow-lg shadow-red-500/40"
               >
-                <PhoneOff className="w-7 h-7" />
+                <PhoneOff className="w-6 h-6" />
               </button>
-
-              {/* Skip */}
-              <button
+              <Btn
                 onClick={onSkip}
-                className="w-14 h-14 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-all"
-              >
-                <MonitorUp className="w-6 h-6" />
-              </button>
+                active
+                icon={<SkipForward className="w-5 h-5" />}
+              />
             </div>
           </motion.div>
         )}
@@ -283,21 +295,56 @@ export default function VideoRoom({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-50"
+            className="absolute inset-0 flex items-center justify-center bg-black/85 backdrop-blur-sm z-50"
           >
-            <div className="text-center px-6">
-              <p className="text-red-400 text-lg mb-2">Connection Error</p>
+            <div className="text-center px-8 max-w-xs">
+              <WifiOff className="w-12 h-12 text-red-400 mx-auto mb-4" />
+              <p className="text-white font-semibold mb-2">Connection Error</p>
               <p className="text-neutral-400 text-sm mb-6">{error}</p>
-              <button
-                onClick={onBack}
-                className="px-6 py-2 rounded-lg bg-white text-black font-medium text-sm"
-              >
-                Go Back
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    calledRef.current = false;
+                    startCall(isInitiator);
+                  }}
+                  className="px-6 py-2.5 rounded-xl bg-purple-600 text-white font-medium text-sm hover:bg-purple-700"
+                >
+                  Try Again
+                </button>
+                <button
+                  onClick={onBack}
+                  className="px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 text-sm hover:bg-white/10"
+                >
+                  Go Back
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function Btn({
+  onClick,
+  active,
+  icon,
+}: {
+  onClick: () => void;
+  active: boolean;
+  icon: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all active:scale-95 ${
+        active
+          ? "bg-white/10 text-white hover:bg-white/20"
+          : "bg-red-500/15 text-red-400 hover:bg-red-500/25"
+      }`}
+    >
+      {icon}
+    </button>
   );
 }

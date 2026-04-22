@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { wsService } from '@/lib/websocket-service';
 
 export interface VideoCallState {
@@ -11,54 +11,44 @@ export interface VideoCallState {
   isVideoEnabled: boolean;
   isAudioEnabled: boolean;
   error: string | null;
+  debugStatus: string;
 }
 
-// Type guard for usable peer connection
+export interface UseVideoCallReturn extends VideoCallState {
+  localVideoRef: React.RefObject<HTMLVideoElement | null>;
+  remoteVideoRef: React.RefObject<HTMLVideoElement | null>;
+  startCall: (isInitiator: boolean) => Promise<void>;
+  toggleVideo: () => void;
+  toggleAudio: () => void;
+  endCall: () => void;
+}
+
 function isPCUsable(pc: RTCPeerConnection | null): pc is RTCPeerConnection {
-  if (!pc) return false;
-  return pc.connectionState !== 'closed' && 
-         pc.connectionState !== 'failed' &&
-         pc.signalingState !== 'closed';
+  return pc !== null && pc.connectionState !== 'closed';
 }
 
-// Get TURN server config
-function getIceServers(): RTCIceServer[] {
-  const servers: RTCIceServer[] = [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-  ];
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  {
+    urls: 'turn:openrelay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+];
 
-  const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
-  const turnUsername = process.env.NEXT_PUBLIC_TURN_USERNAME;
-  const turnCredential = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
-
-  if (turnUrl && turnUsername && turnCredential) {
-    servers.push({
-      urls: turnUrl,
-      username: turnUsername,
-      credential: turnCredential,
-    });
-  } else {
-    console.warn('[VideoCall] Using free TURN server - replace for production');
-    servers.push({
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    });
-    servers.push({
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    });
-  }
-
-  return servers;
-}
-
-export function useVideoCall() {
+export function useVideoCall(): UseVideoCallReturn {
   const [state, setState] = useState<VideoCallState>({
     isConnected: false,
     isConnecting: false,
@@ -67,92 +57,68 @@ export function useVideoCall() {
     isVideoEnabled: true,
     isAudioEnabled: true,
     error: null,
+    debugStatus: 'idle',
   });
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
-  const isStartingRef = useRef(false);
-  const iceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
-  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  
-  // CRITICAL: Track if component is mounted - initialize to true
-  const isMountedRef = useRef(true);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  
-  // Track call ID to handle Strict Mode double-mount
-  const callIdRef = useRef(0);
 
-  // Reset mounted flag on actual mount
-  useEffect(() => {
-    console.log('[VideoCall] Component mounted');
-    isMountedRef.current = true;
-    
-    return () => {
-      console.log('[VideoCall] Component unmounting (cleanup)');
-      isMountedRef.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
+  // This flag is set to true when the component unmounts.
+  // startCall checks it after every await to abort cleanly.
+  const destroyedRef = useRef(false);
+
+  // Whether a startCall is actively running (prevents double-start)
+  const isStartingRef = useRef(false);
+
+  const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const remoteDescSetRef = useRef(false);
+
+  const dbg = useCallback((msg: string) => {
+    console.log(`[VideoCall] ${msg}`);
+    setState(prev => ({ ...prev, debugStatus: msg }));
   }, []);
 
-  // Comprehensive cleanup
-  const cleanup = useCallback(() => {
-    console.log('[VideoCall] Cleaning up resources...');
-    
-    // Abort any pending async operations
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
+  const attachToEl = useCallback((el: HTMLVideoElement | null, stream: MediaStream | null) => {
+    if (!el || !stream) return;
+    console.log('[VideoCall] attaching stream, tracks:', stream.getTracks().map(t => `${t.kind}:${t.readyState}`).join(', '));
+    el.srcObject = stream;
+    el.play().catch(e => console.warn('[VideoCall] play() blocked:', e.message));
+  }, []);
 
-    // Clear connection timeout
-    if (connectionTimeoutRef.current) {
-      clearTimeout(connectionTimeoutRef.current);
-      connectionTimeoutRef.current = null;
-    }
+  // Full teardown — stops tracks, closes PC, removes WS listeners
+  const teardown = useCallback(() => {
+    console.log('[VideoCall] teardown()');
 
-    // Remove signaling listeners
-    if (cleanupRef.current) {
-      cleanupRef.current();
-      cleanupRef.current = null;
-    }
+    cleanupRef.current?.();
+    cleanupRef.current = null;
 
-    // Stop all tracks
-    if (state.localStream) {
-      state.localStream.getTracks().forEach(track => {
-        track.stop();
-        console.log(`[VideoCall] Stopped local track: ${track.kind}`);
-      });
-    }
+    localStreamRef.current?.getTracks().forEach(t => t.stop());
+    localStreamRef.current = null;
 
-    // Close peer connection
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+
     const pc = pcRef.current;
     if (pc) {
       pc.ontrack = null;
       pc.onicecandidate = null;
-      pc.oniceconnectionstatechange = null;
       pc.onconnectionstatechange = null;
+      pc.oniceconnectionstatechange = null;
       pc.onsignalingstatechange = null;
-      pc.onicegatheringstatechange = null;
-      pc.onnegotiationneeded = null;
-      
-      try {
-        pc.close();
-        console.log('[VideoCall] PeerConnection closed');
-      } catch (err) {
-        console.error('[VideoCall] Error closing PC:', err);
-      }
+      try { pc.close(); } catch { /* ignore */ }
       pcRef.current = null;
     }
 
-    // Clear ICE candidates queue
-    iceCandidatesRef.current = [];
+    pendingIceCandidatesRef.current = [];
+    remoteDescSetRef.current = false;
+    isStartingRef.current = false;
+  }, []);
 
-    // Reset state
+  // Reset visible state (separate from teardown so we can call them independently)
+  const resetState = useCallback(() => {
     setState({
       isConnected: false,
       isConnecting: false,
@@ -161,349 +127,268 @@ export function useVideoCall() {
       isVideoEnabled: true,
       isAudioEnabled: true,
       error: null,
+      debugStatus: 'idle',
     });
+  }, []);
 
-    reconnectAttemptsRef.current = 0;
-  }, [state.localStream]);
+  // Re-attach streams when video elements mount after stream is already available
+  useEffect(() => {
+    if (state.localStream) attachToEl(localVideoRef.current, state.localStream);
+  }, [state.localStream, attachToEl]);
 
-  // Initialize WebRTC connection
+  useEffect(() => {
+    if (state.remoteStream) attachToEl(remoteVideoRef.current, state.remoteStream);
+  }, [state.remoteStream, attachToEl]);
+
   const startCall = useCallback(async (isInitiator: boolean) => {
-    // Increment call ID to handle stale async operations
-    const thisCallId = ++callIdRef.current;
-    console.log(`[VideoCall] startCall #${thisCallId} as ${isInitiator ? 'initiator' : 'answerer'}`);
-    
-    // Prevent double-start
-    if (isStartingRef.current) {
-      console.log('[VideoCall] Already starting, ignoring duplicate call');
+    // Guard: don't start if component already unmounted
+    if (destroyedRef.current) {
+      console.log('[VideoCall] startCall aborted — component destroyed');
       return;
     }
 
-    // Clean up any existing connection
-    if (pcRef.current) {
-      console.log('[VideoCall] Cleaning up existing connection before starting');
-      cleanup();
+    if (isStartingRef.current) {
+      console.log('[VideoCall] startCall already in progress, ignoring');
+      return;
     }
 
-    // Create new abort controller for this call
-    abortControllerRef.current = new AbortController();
-    const signal = abortControllerRef.current.signal;
+    // Clean up any previous call
+    if (pcRef.current) {
+      teardown();
+      resetState();
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    // Check again after await
+    if (destroyedRef.current) return;
 
     isStartingRef.current = true;
+    pendingIceCandidatesRef.current = [];
+    remoteDescSetRef.current = false;
+
+    dbg(`starting — ${isInitiator ? 'INITIATOR' : 'ANSWERER'}`);
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     let pc: RTCPeerConnection | null = null;
-    let stream: MediaStream | null = null;
+    // localPc is a closure-local reference so async handlers always have it
+    // even after pcRef might change
+    const localPc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    pc = localPc;
+    pcRef.current = localPc;
+
+    console.log('[VideoCall] PC created');
+
+    const flushQueued = async () => {
+      const q = pendingIceCandidatesRef.current.splice(0);
+      if (q.length) console.log(`[VideoCall] flushing ${q.length} queued ICE candidates`);
+      for (const c of q) {
+        try { await localPc.addIceCandidate(new RTCIceCandidate(c)); }
+        catch (e) { console.warn('[VideoCall] queued ICE err:', e); }
+      }
+    };
+
+    // Wire handlers
+    localPc.ontrack = (ev) => {
+      console.log('[VideoCall] ontrack:', ev.track.kind);
+      const [remoteStream] = ev.streams;
+      setState(prev => ({ ...prev, remoteStream, isConnecting: false }));
+      attachToEl(remoteVideoRef.current, remoteStream);
+      dbg('remote track received ✓');
+    };
+
+    localPc.onicecandidate = (ev) => {
+      if (ev.candidate) {
+        console.log('[VideoCall] local ICE:', ev.candidate.type, ev.candidate.protocol);
+        wsService.sendIceCandidate(ev.candidate.toJSON());
+      } else {
+        console.log('[VideoCall] ICE gathering complete');
+      }
+    };
+
+    localPc.onconnectionstatechange = () => {
+      const s = localPc.connectionState;
+      dbg(`conn: ${s}`);
+      if (s === 'connected') {
+        setState(prev => ({ ...prev, isConnected: true, isConnecting: false }));
+      } else if (s === 'failed') {
+        setState(prev => ({ ...prev, isConnected: false, isConnecting: false, error: 'Connection failed. Try again or check TURN config.' }));
+      } else if (s === 'disconnected' || s === 'closed') {
+        setState(prev => ({ ...prev, isConnected: false, isConnecting: false }));
+      }
+    };
+
+    localPc.oniceconnectionstatechange = () => {
+      const s = localPc.iceConnectionState;
+      console.log('[VideoCall] ICE conn:', s);
+      if (s === 'failed' && isInitiator && isPCUsable(localPc)) {
+        console.log('[VideoCall] ICE failed — restarting');
+        localPc.createOffer({ iceRestart: true })
+          .then(o => localPc.setLocalDescription(o))
+          .then(() => wsService.sendOffer(localPc.localDescription!))
+          .catch(e => console.error('[VideoCall] ICE restart err:', e));
+      }
+    };
+
+    localPc.onsignalingstatechange = () => {
+      console.log('[VideoCall] signaling:', localPc.signalingState);
+    };
+
+    // WS signaling handlers — use localPc (closure), not pcRef
+    const onOffer = async (data: RTCSessionDescriptionInit) => {
+      if (!isPCUsable(localPc)) { console.log('[VideoCall] offer ignored — PC unusable'); return; }
+      console.log('[VideoCall] got offer, signaling:', localPc.signalingState);
+      dbg('got offer');
+      try {
+        await localPc.setRemoteDescription(new RTCSessionDescription(data));
+        remoteDescSetRef.current = true;
+        await flushQueued();
+        const answer = await localPc.createAnswer();
+        await localPc.setLocalDescription(answer);
+        wsService.sendAnswer(answer);
+        dbg('answer sent ✓');
+      } catch (e) {
+        console.error('[VideoCall] offer handler err:', e);
+        dbg('offer handling failed');
+      }
+    };
+
+    const onAnswer = async (data: RTCSessionDescriptionInit) => {
+      if (!isPCUsable(localPc)) { console.log('[VideoCall] answer ignored — PC unusable'); return; }
+      console.log('[VideoCall] got answer, signaling:', localPc.signalingState);
+      dbg('got answer');
+      try {
+        await localPc.setRemoteDescription(new RTCSessionDescription(data));
+        remoteDescSetRef.current = true;
+        await flushQueued();
+        dbg('answer applied ✓');
+      } catch (e) {
+        console.error('[VideoCall] answer handler err:', e);
+        dbg('answer handling failed');
+      }
+    };
+
+    const onIce = async (data: RTCIceCandidateInit) => {
+      if (!isPCUsable(localPc)) return;
+      if (!remoteDescSetRef.current) {
+        console.log('[VideoCall] queuing ICE (no remote desc yet)');
+        pendingIceCandidatesRef.current.push(data);
+        return;
+      }
+      try { await localPc.addIceCandidate(new RTCIceCandidate(data)); }
+      catch (e) { console.warn('[VideoCall] addIceCandidate err:', e); }
+    };
+
+    wsService.on('offer', onOffer);
+    wsService.on('answer', onAnswer);
+    wsService.on('ice_candidate', onIce);
+
+    cleanupRef.current = () => {
+      console.log('[VideoCall] removing WS signaling listeners');
+      wsService.off('offer', onOffer);
+      wsService.off('answer', onAnswer);
+      wsService.off('ice_candidate', onIce);
+    };
 
     try {
-      // Check if aborted before starting
-      if (signal.aborted) {
-        throw new Error('Call aborted before start');
-      }
-
-      // ========== STEP 1: Create PeerConnection ==========
-      pc = new RTCPeerConnection({
-        iceServers: getIceServers(),
-        iceTransportPolicy: 'all',
-        bundlePolicy: 'max-bundle',
-        rtcpMuxPolicy: 'require',
-      });
-
-      pcRef.current = pc;
-      console.log(`[VideoCall #${thisCallId}] PeerConnection created`);
-
-      // ========== STEP 2: Set up event handlers ==========
-      
-      pc.ontrack = (event) => {
-        if (callIdRef.current !== thisCallId) {
-          console.log(`[VideoCall #${thisCallId}] Stale ontrack, ignoring`);
-          return;
-        }
-        if (!isMountedRef.current) return;
-        
-        console.log(`[VideoCall #${thisCallId}] Received remote track:`, event.track.kind);
-        const [remoteStream] = event.streams;
-        if (remoteStream) {
-          console.log(`[VideoCall #${thisCallId}] Setting remote stream`);
-          setState(prev => ({ ...prev, remoteStream }));
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream;
-            remoteVideoRef.current.play().catch(e => console.warn('[VideoCall] Remote play failed:', e));
-          }
-        }
-      };
-
-      pc.onicecandidate = (event) => {
-        if (callIdRef.current !== thisCallId) return;
-        if (!isMountedRef.current) return;
-        
-        if (event.candidate) {
-          const candidate = event.candidate.toJSON();
-          console.log(`[VideoCall #${thisCallId}] ICE candidate generated`);
-          
-          if (pc!.signalingState === 'stable' || pc!.signalingState === 'have-local-offer') {
-            wsService.sendIceCandidate(candidate);
-          } else {
-            iceCandidatesRef.current.push(candidate);
-          }
-        } else {
-          console.log(`[VideoCall #${thisCallId}] ICE gathering complete`);
-        }
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        if (callIdRef.current !== thisCallId) return;
-        if (!isMountedRef.current) return;
-        
-        console.log(`[VideoCall #${thisCallId}] ICE connection state:`, pc!.iceConnectionState);
-        
-        if (pc!.iceConnectionState === 'connected' || pc!.iceConnectionState === 'completed') {
-          setState(prev => ({ ...prev, isConnecting: false }));
-        } else if (pc!.iceConnectionState === 'failed') {
-          console.error(`[VideoCall #${thisCallId}] ICE connection failed`);
-          if (isPCUsable(pc) && reconnectAttemptsRef.current < 3) {
-            reconnectAttemptsRef.current++;
-            pc!.restartIce();
-          }
-        }
-      };
-
-      pc.onconnectionstatechange = () => {
-        if (callIdRef.current !== thisCallId) return;
-        if (!isMountedRef.current) return;
-        
-        console.log(`[VideoCall #${thisCallId}] Connection state:`, pc!.connectionState);
-        
-        if (pc!.connectionState === 'connected') {
-          setState(prev => ({ ...prev, isConnected: true, isConnecting: false, error: null }));
-          if (connectionTimeoutRef.current) {
-            clearTimeout(connectionTimeoutRef.current);
-            connectionTimeoutRef.current = null;
-          }
-        } else if (pc!.connectionState === 'failed') {
-          setState(prev => ({ ...prev, isConnected: false, isConnecting: false, error: 'Connection failed' }));
-        }
-      };
-
-      pc.onsignalingstatechange = () => {
-        if (callIdRef.current !== thisCallId) return;
-        console.log(`[VideoCall #${thisCallId}] Signaling state:`, pc!.signalingState);
-      };
-
-      // ========== STEP 3: Get local media ==========
-      console.log(`[VideoCall #${thisCallId}] Requesting media devices...`);
-      
+      // Get media AFTER wiring up all handlers
+      dbg('requesting camera/mic');
+      let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30 },
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: true,
         });
-      } catch (mediaErr) {
-        console.error(`[VideoCall #${thisCallId}] Media access failed:`, mediaErr);
-        throw new Error(`Camera/microphone access denied: ${(mediaErr as Error).message}`);
+      } catch (e: any) {
+        console.warn('[VideoCall] getUserMedia err:', e.name, '— trying audio only');
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setState(prev => ({ ...prev, isVideoEnabled: false }));
       }
 
-      // CRITICAL: Check if this call is still the active one
-      if (callIdRef.current !== thisCallId) {
-        console.log(`[VideoCall #${thisCallId}] Stale call after media, cleaning up`);
-        stream.getTracks().forEach(track => track.stop());
+      // After every await: bail if component was destroyed or PC was closed
+      if (destroyedRef.current) {
+        console.log('[VideoCall] destroyed during getUserMedia — stopping tracks');
+        stream.getTracks().forEach(t => t.stop());
+        isStartingRef.current = false;
         return;
       }
 
-      // Check if aborted or unmounted while waiting for media
-      if (signal.aborted || !isMountedRef.current) {
-        console.log(`[VideoCall #${thisCallId}] Aborted/unmounted after getting media, cleaning up`);
-        stream.getTracks().forEach(track => track.stop());
+      if (!isPCUsable(localPc)) {
+        console.error('[VideoCall] PC closed during getUserMedia');
+        stream.getTracks().forEach(t => t.stop());
+        setState(prev => ({ ...prev, isConnecting: false, error: 'Setup failed, please try again.', debugStatus: 'PC closed during setup' }));
+        isStartingRef.current = false;
         return;
       }
 
-      // Check if PC is still alive
-      if (!isPCUsable(pc)) {
-        stream.getTracks().forEach(track => track.stop());
-        throw new Error('PeerConnection closed while waiting for media');
-      }
-
-      console.log(`[VideoCall #${thisCallId}] Local media obtained:`, 
-        stream.getVideoTracks().length, 'video,',
-        stream.getAudioTracks().length, 'audio'
-      );
-
+      localStreamRef.current = stream;
       setState(prev => ({ ...prev, localStream: stream }));
+      attachToEl(localVideoRef.current, stream);
 
-      // Attach to local video element
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-        await localVideoRef.current.play().catch(e => console.warn('[VideoCall] Local play failed:', e));
-      }
-
-      // Check again before adding tracks
-      if (callIdRef.current !== thisCallId || signal.aborted || !isMountedRef.current || !isPCUsable(pc)) {
-        console.log(`[VideoCall #${thisCallId}] Aborted before adding tracks`);
-        return;
-      }
-
-      // Add tracks to peer connection
-      stream.getTracks().forEach(track => {
-        if (isPCUsable(pc)) {
-          pc!.addTrack(track, stream!);
-          console.log(`[VideoCall #${thisCallId}] Added local track: ${track.kind}`);
-        }
+      stream.getTracks().forEach(t => {
+        localPc.addTrack(t, stream);
+        console.log('[VideoCall] added track:', t.kind);
       });
+      dbg('local stream ready');
 
-      // ========== STEP 4: Set up signaling handlers ==========
-      const handleOffer = async (data: RTCSessionDescriptionInit) => {
-        if (callIdRef.current !== thisCallId) return;
-        if (!isMountedRef.current || !isPCUsable(pc)) return;
-        
-        console.log(`[VideoCall #${thisCallId}] Received offer`);
-        try {
-          await pc!.setRemoteDescription(new RTCSessionDescription(data));
-          const answer = await pc!.createAnswer();
-          await pc!.setLocalDescription(answer);
-          wsService.sendAnswer(answer);
-          
-          iceCandidatesRef.current.forEach(c => wsService.sendIceCandidate(c));
-          iceCandidatesRef.current = [];
-        } catch (err) {
-          console.error(`[VideoCall #${thisCallId}] Error handling offer:`, err);
-        }
-      };
+      // Check again before offer creation
+      if (destroyedRef.current) { isStartingRef.current = false; return; }
 
-      const handleAnswer = async (data: RTCSessionDescriptionInit) => {
-        if (callIdRef.current !== thisCallId) return;
-        if (!isMountedRef.current || !isPCUsable(pc)) return;
-        
-        console.log(`[VideoCall #${thisCallId}] Received answer`);
-        try {
-          await pc!.setRemoteDescription(new RTCSessionDescription(data));
-          iceCandidatesRef.current.forEach(c => wsService.sendIceCandidate(c));
-          iceCandidatesRef.current = [];
-        } catch (err) {
-          console.error(`[VideoCall #${thisCallId}] Error handling answer:`, err);
-        }
-      };
-
-      const handleIceCandidate = async (data: RTCIceCandidateInit) => {
-        if (callIdRef.current !== thisCallId) return;
-        if (!isMountedRef.current || !isPCUsable(pc)) return;
-        
-        try {
-          await pc!.addIceCandidate(new RTCIceCandidate(data));
-        } catch (err) {
-          console.error(`[VideoCall #${thisCallId}] Error adding remote ICE candidate:`, err);
-        }
-      };
-
-      wsService.on('offer', handleOffer);
-      wsService.on('answer', handleAnswer);
-      wsService.on('ice_candidate', handleIceCandidate);
-
-      cleanupRef.current = () => {
-        wsService.off('offer', handleOffer);
-        wsService.off('answer', handleAnswer);
-        wsService.off('ice_candidate', handleIceCandidate);
-      };
-
-      // Check again before creating offer
-      if (callIdRef.current !== thisCallId || signal.aborted || !isMountedRef.current || !isPCUsable(pc)) {
-        console.log(`[VideoCall #${thisCallId}] Aborted before offer/ready`);
-        return;
-      }
-
-      // ========== STEP 5: Create offer if initiator ==========
       if (isInitiator) {
-        console.log(`[VideoCall #${thisCallId}] Creating offer...`);
-        const offer = await pc.createOffer({
-          offerToReceiveAudio: true,
-          offerToReceiveVideo: true,
-        });
-        
-        await pc.setLocalDescription(offer);
+        dbg('creating offer');
+        const offer = await localPc.createOffer();
+        await localPc.setLocalDescription(offer);
         wsService.sendOffer(offer);
-        
-        iceCandidatesRef.current.forEach(c => wsService.sendIceCandidate(c));
-        iceCandidatesRef.current = [];
+        dbg('offer sent — waiting for answer');
+      } else {
+        dbg('answerer ready — waiting for offer');
       }
 
-      // ========== STEP 6: Notify server ==========
       wsService.sendVideoReady();
-      console.log(`[VideoCall #${thisCallId}] Video ready signal sent`);
-
-      // Set connection timeout
-      connectionTimeoutRef.current = setTimeout(() => {
-        if (callIdRef.current === thisCallId && isMountedRef.current && !state.isConnected) {
-          console.warn(`[VideoCall #${thisCallId}] Connection timeout`);
-          setState(prev => ({ ...prev, error: 'Connection timeout. Please try again.' }));
-        }
-      }, 30000);
 
     } catch (err: any) {
-      console.error(`[VideoCall #${thisCallId}] Start call error:`, err);
-      
-      // Only update state if this is still the active call
-      if (callIdRef.current === thisCallId && isMountedRef.current) {
-        setState(prev => ({
-          ...prev,
-          isConnecting: false,
-          error: err.message || 'Failed to start video call',
-        }));
-      }
-      
-      // Clean up on error
-      if (pc) {
-        try { pc.close(); } catch {}
-        pcRef.current = null;
-      }
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      if (destroyedRef.current) { isStartingRef.current = false; return; }
+      console.error('[VideoCall] startCall error:', err);
+      setState(prev => ({
+        ...prev,
+        isConnecting: false,
+        error: err.message || 'Failed to start video call',
+        debugStatus: `ERROR: ${err.message}`,
+      }));
+      teardown();
     } finally {
-      if (callIdRef.current === thisCallId) {
-        isStartingRef.current = false;
-      }
+      isStartingRef.current = false;
     }
-  }, [cleanup, state.isConnected]);
+  }, [teardown, resetState, dbg, attachToEl]);
 
-  // Toggle video
   const toggleVideo = useCallback(() => {
-    const newEnabled = !state.isVideoEnabled;
-    state.localStream?.getVideoTracks().forEach(track => {
-      track.enabled = newEnabled;
-    });
-    setState(prev => ({ ...prev, isVideoEnabled: newEnabled }));
-    wsService.sendVideoToggle(newEnabled);
-  }, [state.isVideoEnabled, state.localStream]);
+    const v = !state.isVideoEnabled;
+    localStreamRef.current?.getVideoTracks().forEach(t => { t.enabled = v; });
+    setState(prev => ({ ...prev, isVideoEnabled: v }));
+    wsService.sendVideoToggle(v);
+  }, [state.isVideoEnabled]);
 
-  // Toggle audio
   const toggleAudio = useCallback(() => {
-    const newEnabled = !state.isAudioEnabled;
-    state.localStream?.getAudioTracks().forEach(track => {
-      track.enabled = newEnabled;
-    });
-    setState(prev => ({ ...prev, isAudioEnabled: newEnabled }));
-    wsService.sendAudioToggle(newEnabled);
-  }, [state.isAudioEnabled, state.localStream]);
+    const v = !state.isAudioEnabled;
+    localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = v; });
+    setState(prev => ({ ...prev, isAudioEnabled: v }));
+    wsService.sendAudioToggle(v);
+  }, [state.isAudioEnabled]);
 
-  // End call
   const endCall = useCallback(() => {
-    console.log('[VideoCall] Ending call');
     wsService.sendEndCall();
-    cleanup();
-  }, [cleanup]);
+    teardown();
+    resetState();
+  }, [teardown, resetState]);
 
-  // Cleanup on unmount
+  // On unmount: mark destroyed FIRST, then teardown
+  // This prevents startCall from continuing after unmount
   useEffect(() => {
+    destroyedRef.current = false; // reset on mount
     return () => {
-      cleanup();
+      destroyedRef.current = true;
+      teardown();
     };
-  }, [cleanup]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     ...state,

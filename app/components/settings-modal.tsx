@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Video, Camera } from "lucide-react";
-
 import {
   X,
   Volume2,
@@ -14,6 +12,8 @@ import {
   RotateCcw,
   MessageSquare,
   Sliders,
+  Video,
+  MessageCircle,
 } from "lucide-react";
 import { useSettings } from "@/lib/ settings-context";
 import { playSound, preloadAudioContext } from "@/lib/sounds";
@@ -95,6 +95,10 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
 
   const handleSimilarityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateSetting("minSimilarity", parseFloat(e.target.value));
+  };
+
+  const handleDefaultModeChange = (mode: "chat" | "video") => {
+    updateSetting("defaultCallMode", mode);
   };
 
   const handleReset = () => {
@@ -268,6 +272,43 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
               enabled={settings.autoRequeue}
               onToggle={handleAutoRequeueToggle}
             />
+          </SettingsRow>
+
+          {/* Section: Video */}
+          <div className="text-[10px] text-neutral-600 font-display tracking-[0.2em] uppercase px-1 pt-4 pb-1">
+            Video
+          </div>
+
+          {/* Default Call Mode */}
+          <SettingsRow
+            icon={<Video className="w-4 h-4 text-lavender" />}
+            title="Default Call Mode"
+            subtitle="Preferred mode when finding matches"
+          >
+            <div className="flex items-center gap-1 bg-white/5 rounded-lg p-0.5">
+              <button
+                onClick={() => handleDefaultModeChange("chat")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-all ${
+                  settings.defaultCallMode === "chat"
+                    ? "bg-white/10 text-white"
+                    : "text-neutral-500 hover:text-neutral-300"
+                }`}
+              >
+                <MessageCircle className="w-3 h-3" />
+                Chat
+              </button>
+              <button
+                onClick={() => handleDefaultModeChange("video")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition-all ${
+                  settings.defaultCallMode === "video"
+                    ? "bg-red-500/10 text-red-400"
+                    : "text-neutral-500 hover:text-neutral-300"
+                }`}
+              >
+                <Video className="w-3 h-3" />
+                Video
+              </button>
+            </div>
           </SettingsRow>
 
           {/* Section: Privacy */}

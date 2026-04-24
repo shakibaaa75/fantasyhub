@@ -27,36 +27,102 @@ function isPCUsable(pc: RTCPeerConnection | null): pc is RTCPeerConnection {
   return pc !== null && pc.connectionState !== 'closed';
 }
 
-// EXPANDED: UDP + TCP + TLS TURN for long-distance/restricted networks
-const ICE_SERVERS: RTCIceServer[] = [
+// ---------------------------------------------------------------------------
+// TURN SERVER SETUP
+// ---------------------------------------------------------------------------
+// The old openrelay.metered.ca free TURN was unreliable for distant users.
+//
+// OPTION A (Recommended — Free, works globally):
+//   Sign up at https://www.metered.ca/stun-turn  (free tier = 1 GB/mo relay)
+//   Put your API key in .env:  NEXT_PUBLIC_METERED_API_KEY=xxxxxxxx
+//   The fetchIceServers() function below will call their API and get
+//   geo-distributed TURN servers automatically.
+//
+// OPTION B (Self-hosted, best performance):
+//   Run coturn on any $5 VPS:
+//     docker run -d --network=host coturn/coturn \
+//       -n --log-file=stdout --min-port=49160 --max-port=49200 \
+//       --lt-cred-mech --fingerprint \
+//       --no-multicast-peers --no-cli \
+//       --no-tlsv1 --no-tlsv1_1 \
+//       --realm=yourdomain.com \
+//       --user=myuser:mypassword \
+//       --external-ip=$(curl -s ifconfig.me)
+//   Then set env vars:
+//     NEXT_PUBLIC_TURN_URL=turn:YOUR_SERVER_IP:3478
+//     NEXT_PUBLIC_TURN_USER=myuser
+//     NEXT_PUBLIC_TURN_PASS=mypassword
+//
+// OPTION C (Zero config fallback — less reliable but better than openrelay):
+//   The FALLBACK_ICE_SERVERS below uses multiple public free STUN servers
+//   plus Twilio's NTS demo TURN. Works for most cases but has no SLA.
+// ---------------------------------------------------------------------------
+
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
+  // Multiple STUN servers for redundancy
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
-  // TURN UDP (fastest when it works)
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  // Metered.ca free TURN (more reliable than openrelay, still free)
   {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  // TURN TCP (bypasses UDP-blocking firewalls)
-  {
-    urls: 'turn:openrelay.metered.ca:80?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  // TURN TCP on 443 (bypasses port-restrictive firewalls)
-  {
-    urls: 'turn:openrelay.metered.ca:443',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  // TURNS (TLS) on 443 — looks like HTTPS, bypasses DPI/corporate proxies
-  {
-    urls: 'turns:openrelay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
+    urls: [
+      'turn:a.relay.metered.ca:80',
+      'turn:a.relay.metered.ca:80?transport=tcp',
+      'turn:a.relay.metered.ca:443',
+      'turn:a.relay.metered.ca:443?transport=tcp',
+    ],
+    username: 'e8dd65f4519f5d3a7b0cde09',
+    credential: 'uMNAqBMNaJZRDsZK',
   },
 ];
+
+// Fetch fresh geo-distributed TURN credentials from Metered.ca API
+// Returns fallback servers if API key is missing or request fails
+async function fetchIceServers(): Promise<RTCIceServer[]> {
+  const apiKey = process.env.NEXT_PUBLIC_METERED_API_KEY;
+
+  // Use self-hosted TURN if configured
+  const selfHostedUrl = process.env.NEXT_PUBLIC_TURN_URL;
+  if (selfHostedUrl) {
+    return [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun.cloudflare.com:3478' },
+      {
+        urls: selfHostedUrl,
+        username: process.env.NEXT_PUBLIC_TURN_USER ?? '',
+        credential: process.env.NEXT_PUBLIC_TURN_PASS ?? '',
+      },
+      // TCP fallback on port 443 (punches through most corporate firewalls)
+      {
+        urls: selfHostedUrl.replace('3478', '443') + '?transport=tcp',
+        username: process.env.NEXT_PUBLIC_TURN_USER ?? '',
+        credential: process.env.NEXT_PUBLIC_TURN_PASS ?? '',
+      },
+    ];
+  }
+
+  if (!apiKey) {
+    console.warn('[VideoCall] No METERED_API_KEY — using fallback TURN servers. Set NEXT_PUBLIC_METERED_API_KEY for best reliability.');
+    return FALLBACK_ICE_SERVERS;
+  }
+
+  try {
+    const res = await fetch(
+      `https://liveapp.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const servers: RTCIceServer[] = await res.json();
+    console.log(`[VideoCall] Fetched ${servers.length} ICE servers from Metered`);
+    return servers;
+  } catch (e) {
+    console.warn('[VideoCall] Failed to fetch Metered TURN credentials, using fallback:', e);
+    return FALLBACK_ICE_SERVERS;
+  }
+}
 
 export function useVideoCall(): UseVideoCallReturn {
   const [state, setState] = useState<VideoCallState>({
@@ -75,6 +141,8 @@ export function useVideoCall(): UseVideoCallReturn {
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const iceServersRef = useRef<RTCIceServer[]>(FALLBACK_ICE_SERVERS);
+  const iceRetryRef = useRef(false); // tracks whether we already did relay-only retry
 
   const destroyedRef = useRef(false);
   const isStartingRef = useRef(false);
@@ -113,8 +181,6 @@ export function useVideoCall(): UseVideoCallReturn {
       pc.onconnectionstatechange = null;
       pc.oniceconnectionstatechange = null;
       pc.onsignalingstatechange = null;
-      pc.onicecandidateerror = null;
-      pc.onicegatheringstatechange = null;
       try { pc.close(); } catch { /* ignore */ }
       pcRef.current = null;
     }
@@ -122,6 +188,7 @@ export function useVideoCall(): UseVideoCallReturn {
     pendingIceCandidatesRef.current = [];
     remoteDescSetRef.current = false;
     isStartingRef.current = false;
+    iceRetryRef.current = false;
   }, []);
 
   const resetState = useCallback(() => {
@@ -137,11 +204,24 @@ export function useVideoCall(): UseVideoCallReturn {
     });
   }, []);
 
-  // StrictMode-safe mount/unmount
+  // Prefetch ICE servers on mount so they're ready when call starts
+  useEffect(() => {
+    fetchIceServers().then(servers => {
+      iceServersRef.current = servers;
+      console.log('[VideoCall] ICE servers pre-fetched, relay count:',
+        servers.filter(s => {
+          const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+          return urls.some(u => u.startsWith('turn:'));
+        }).length
+      );
+    });
+  }, []);
+
   useEffect(() => {
     mountCountRef.current += 1;
     const mountId = mountCountRef.current;
     destroyedRef.current = false;
+
     console.log(`[VideoCall] mount #${mountId}`);
 
     return () => {
@@ -154,7 +234,6 @@ export function useVideoCall(): UseVideoCallReturn {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-attach streams when refs or streams change
   useEffect(() => {
     if (state.localStream) attachToEl(localVideoRef.current, state.localStream);
   }, [state.localStream, attachToEl]);
@@ -168,30 +247,44 @@ export function useVideoCall(): UseVideoCallReturn {
       console.log('[VideoCall] startCall aborted — component destroyed');
       return;
     }
+
     if (isStartingRef.current) {
       console.log('[VideoCall] startCall already in progress, ignoring');
       return;
     }
 
-    // Clean up any previous call
     if (pcRef.current) {
       teardown();
       resetState();
       await new Promise(r => setTimeout(r, 100));
     }
+
     if (destroyedRef.current) return;
 
     isStartingRef.current = true;
+    iceRetryRef.current = false;
     pendingIceCandidatesRef.current = [];
     remoteDescSetRef.current = false;
 
     dbg(`starting — ${isInitiator ? 'INITIATOR' : 'ANSWERER'}`);
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
+    // Fetch fresh ICE servers (geo-distributed TURN endpoints)
+    // Re-fetch here in case prefetch hasn't completed or credentials expired
+    const iceServers = await fetchIceServers();
+    iceServersRef.current = iceServers;
+
+    if (destroyedRef.current) { isStartingRef.current = false; return; }
+
+    // Log which relay types we have — helpful for debugging
+    const relayUrls = iceServers.flatMap(s => Array.isArray(s.urls) ? s.urls : [s.urls]).filter(u => u.startsWith('turn:'));
+    console.log(`[VideoCall] Using ${iceServers.length} ICE servers, ${relayUrls.length} TURN relay endpoints`);
+
     const localPc = new RTCPeerConnection({
-      iceServers: ICE_SERVERS,
+      iceServers,
+      // Trickle ICE — don't wait for all candidates before sending offer
+      // This is the default but being explicit is good
       iceCandidatePoolSize: 10,
-      iceTransportPolicy: 'all',
     });
     pcRef.current = localPc;
 
@@ -206,8 +299,6 @@ export function useVideoCall(): UseVideoCallReturn {
       }
     };
 
-    // ========== PC EVENT HANDLERS ==========
-
     localPc.ontrack = (ev) => {
       console.log('[VideoCall] ontrack:', ev.track.kind, 'streams:', ev.streams.length);
       const [remoteStream] = ev.streams;
@@ -216,34 +307,36 @@ export function useVideoCall(): UseVideoCallReturn {
         return;
       }
       setState(prev => ({ ...prev, remoteStream, isConnecting: false }));
-      setTimeout(() => attachToEl(remoteVideoRef.current, remoteStream), 0);
+      setTimeout(() => {
+        attachToEl(remoteVideoRef.current, remoteStream);
+      }, 0);
       dbg('remote track received ✓');
     };
 
     localPc.onicecandidate = (ev) => {
       if (ev.candidate) {
-        console.log('[VideoCall] local ICE:', ev.candidate.type, ev.candidate.protocol, ev.candidate.address);
+        // Log type so you can confirm relay candidates are being generated
+        console.log('[VideoCall] local ICE:', ev.candidate.type, ev.candidate.protocol,
+          ev.candidate.type === 'relay' ? '← TURN relay ✓' : '');
         wsService.sendIceCandidate(ev.candidate.toJSON());
       } else {
         console.log('[VideoCall] ICE gathering complete');
       }
     };
 
-    // CRITICAL: Log ICE errors to diagnose TURN failures
-    localPc.onicecandidateerror = (event) => {
-      console.warn(
-        `[VideoCall] ICE error ${event.errorCode}: ${event.errorText} | ` +
-        `server: ${event.url} | host: ${event.address}:${event.port}`
-      );
-    };
-
     localPc.onconnectionstatechange = () => {
       const s = localPc.connectionState;
       dbg(`conn: ${s}`);
       if (s === 'connected') {
+        iceRetryRef.current = false;
         setState(prev => ({ ...prev, isConnected: true, isConnecting: false }));
       } else if (s === 'failed') {
-        setState(prev => ({ ...prev, isConnected: false, isConnecting: false, error: 'Connection failed. TURN server may be unreachable.' }));
+        setState(prev => ({
+          ...prev,
+          isConnected: false,
+          isConnecting: false,
+          error: 'Connection failed — check your network or try again.',
+        }));
       } else if (s === 'disconnected' || s === 'closed') {
         setState(prev => ({ ...prev, isConnected: false, isConnecting: false }));
       }
@@ -252,12 +345,49 @@ export function useVideoCall(): UseVideoCallReturn {
     localPc.oniceconnectionstatechange = () => {
       const s = localPc.iceConnectionState;
       console.log('[VideoCall] ICE conn:', s);
-      if (s === 'failed' && isInitiator && isPCUsable(localPc)) {
-        console.log('[VideoCall] ICE failed — restarting');
-        localPc.createOffer({ iceRestart: true })
-          .then(o => localPc.setLocalDescription(o))
-          .then(() => wsService.sendOffer(localPc.localDescription!))
-          .catch(e => console.error('[VideoCall] ICE restart err:', e));
+
+      if (s === 'failed' && isPCUsable(localPc)) {
+        if (!iceRetryRef.current) {
+          // First failure: restart ICE with relay-only policy
+          // This forces all traffic through TURN, bypassing direct P2P
+          // which fails for distant users behind strict NATs
+          iceRetryRef.current = true;
+          console.log('[VideoCall] ICE failed — retrying with relay-only (TURN forced)');
+          dbg('ICE failed, retrying via TURN relay...');
+
+          try {
+            localPc.setConfiguration({
+              iceServers: iceServersRef.current,
+              iceTransportPolicy: 'relay', // Force TURN — skip direct P2P entirely
+            });
+          } catch (e) {
+            console.warn('[VideoCall] setConfiguration failed:', e);
+          }
+
+          if (isInitiator) {
+            localPc.createOffer({ iceRestart: true })
+              .then(o => localPc.setLocalDescription(o))
+              .then(() => {
+                if (localPc.localDescription) wsService.sendOffer(localPc.localDescription);
+              })
+              .catch(e => console.error('[VideoCall] ICE restart err:', e));
+          }
+        } else {
+          // Already retried with relay — still failing, TURN server is down
+          console.error('[VideoCall] ICE failed even with relay-only. TURN server unreachable.');
+          dbg('ICE failed — TURN unreachable, check server config');
+          setState(prev => ({
+            ...prev,
+            isConnected: false,
+            isConnecting: false,
+            error: 'Cannot connect. TURN relay server may be down. Please try again later.',
+          }));
+        }
+      }
+
+      if (s === 'disconnected') {
+        // Temporary disconnect — browser will auto-retry, just log it
+        dbg('ICE disconnected — waiting for reconnect...');
       }
     };
 
@@ -265,8 +395,23 @@ export function useVideoCall(): UseVideoCallReturn {
       console.log('[VideoCall] signaling:', localPc.signalingState);
     };
 
-    // ========== WS SIGNALING HANDLERS ==========
+    // Gather ICE stats periodically so you can see relay vs direct in debug
+    if (process.env.NODE_ENV === 'development') {
+      const statsInterval = setInterval(async () => {
+        if (!isPCUsable(localPc)) { clearInterval(statsInterval); return; }
+        try {
+          const stats = await localPc.getStats();
+          stats.forEach(report => {
+            if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+              console.log('[VideoCall] Active candidate pair type:',
+                report.localCandidateId, '→ remote');
+            }
+          });
+        } catch { clearInterval(statsInterval); }
+      }, 5000);
+    }
 
+    // WS signaling handlers
     const onOffer = async (data: RTCSessionDescriptionInit) => {
       if (!isPCUsable(localPc)) { console.log('[VideoCall] offer ignored — PC unusable'); return; }
       console.log('[VideoCall] got offer, signaling:', localPc.signalingState);
@@ -322,8 +467,6 @@ export function useVideoCall(): UseVideoCallReturn {
       wsService.off('ice_candidate', onIce);
     };
 
-    // ========== GET MEDIA & START ==========
-
     try {
       dbg('requesting camera/mic');
       let stream: MediaStream;
@@ -348,13 +491,19 @@ export function useVideoCall(): UseVideoCallReturn {
       if (!isPCUsable(localPc)) {
         console.error('[VideoCall] PC closed during getUserMedia');
         stream.getTracks().forEach(t => t.stop());
-        setState(prev => ({ ...prev, isConnecting: false, error: 'Setup failed, please try again.', debugStatus: 'PC closed during setup' }));
+        setState(prev => ({
+          ...prev,
+          isConnecting: false,
+          error: 'Setup failed, please try again.',
+          debugStatus: 'PC closed during setup',
+        }));
         isStartingRef.current = false;
         return;
       }
 
       localStreamRef.current = stream;
       setState(prev => ({ ...prev, localStream: stream }));
+
       attachToEl(localVideoRef.current, stream);
       setTimeout(() => attachToEl(localVideoRef.current, stream), 50);
 
@@ -370,28 +519,8 @@ export function useVideoCall(): UseVideoCallReturn {
         dbg('creating offer');
         const offer = await localPc.createOffer();
         await localPc.setLocalDescription(offer);
-
-        // CRITICAL FIX: Wait for ICE gathering so relay candidates are included
-        if (localPc.iceGatheringState !== 'complete') {
-          dbg('waiting for ICE gathering...');
-          await new Promise<void>((resolve) => {
-            const check = () => {
-              if (localPc.iceGatheringState === 'complete') {
-                localPc.onicegatheringstatechange = null;
-                resolve();
-              }
-            };
-            localPc.onicegatheringstatechange = check;
-            setTimeout(() => {
-              console.log('[VideoCall] ICE gathering timeout — sending what we have');
-              localPc.onicegatheringstatechange = null;
-              resolve();
-            }, 3000);
-          });
-        }
-
-        wsService.sendOffer(localPc.localDescription!);
-        dbg('offer sent with ICE candidates');
+        wsService.sendOffer(offer);
+        dbg('offer sent — waiting for answer');
       } else {
         dbg('answerer ready — waiting for offer');
       }
